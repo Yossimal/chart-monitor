@@ -1,50 +1,43 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report:
+- Version change: 1.0.0 -> 1.1.0
+- List of modified principles:
+  - IV. Secure Execution Sandbox -> IV. Secure Execution Sandbox (allow controlled network access)
+  - V. Modern Responsive UI -> V. Vanilla Desktop-First UI
+- Added sections: N/A
+- Removed sections: N/A
+- Templates requiring updates:
+  - .specify/templates/plan-template.md (✅ verified no changes needed)
+  - .specify/templates/spec-template.md (✅ verified no changes needed)
+  - .specify/templates/tasks-template.md (✅ verified no changes needed)
+- Follow-up TODOs: None
+-->
+# Chart-Monitor Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Dynamic Data Engine
+Chart-Monitor MUST act as a dynamic data extraction, transformation, and visualization engine. It MUST provide a generalized way to execute small, safe Python scripts against external systems (like Kubernetes APIs, databases, or Git providers), extract specified data fields, apply styling rules, and present the results in customizable dashboards.
+*Rationale: To provide maximum flexibility for monitoring diverse data sources without hardcoding integrations.*
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Storage Agnostic & GitOps First
+System specifications (Sources and Dashboards) MUST be decoupled from the Kubernetes API. The application MUST support multiple storage backends, starting with a "Pure GitOps" file-system/Git approach. Kubernetes CRDs may be supported as an optional implementation choice.
+*Rationale: Ensures the system can run outside of Kubernetes and integrates naturally with GitOps workflows.*
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Strict Typing & Clean Code
+The backend MUST be written in Python 3.11+ with strict typing enforced. The frontend MUST be written in TypeScript. Clean code practices MUST be followed across the entire codebase.
+*Rationale: Prevents runtime type errors, improves developer experience, and ensures long-term maintainability.*
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Secure Execution Sandbox
+Core execution logic MUST run within a secure sandbox using `RestrictedPython`. Dynamically executed scripts MUST have controlled network access to collect data from providers, but MUST NOT have unrestricted access to the host system or environment variables.
+*Rationale: Allows users to write custom extraction and transformation scripts dynamically that can securely interact with external APIs without compromising the host system.*
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
-
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
-
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Vanilla Desktop-First UI
+The user interface MUST be built with Vanilla web technologies (HTML, CSS, JS) to ensure maximum future flexibility without framework lock-in. It MUST prioritize comfortable desktop monitoring functionality over broad responsive behavior.
+*Rationale: Vanilla technologies ensure longevity and reduced maintenance overhead. Desktop-first optimization acknowledges the primary context in which monitoring dashboards are consumed.*
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+Amendments to this constitution require documentation, approval, and a migration plan if applicable. All PRs/reviews MUST verify compliance with these core principles. Any deviation or complexity MUST be explicitly justified.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.1.0 | **Ratified**: 2026-03-09 | **Last Amended**: 2026-03-09

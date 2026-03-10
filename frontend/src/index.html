@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chart-Monitor</title>
+  <meta name="description" content="Dynamic data extraction and visualization engine for monitoring dashboards." />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+
+  <!-- Connection Banners -->
+  <div id="banner-disconnected" class="banner banner--disconnected hidden" role="alert">
+    ⚠ Disconnected — data is frozen
+  </div>
+  <div id="banner-connecting" class="banner banner--connecting hidden" role="status">
+    ↻ Reconnecting…
+  </div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="logo" aria-hidden="true">CM</div>
+    <span class="app-title">Chart-Monitor</span>
+    <div class="header-right">
+      <span class="last-updated" id="last-updated"></span>
+      <div class="status-dot" id="status-dot"></div>
+    </div>
+  </header>
+
+  <!-- Body: sidebar + main -->
+  <div class="app-body">
+    <aside class="sidebar">
+      <div class="sidebar-label">Dashboards</div>
+      <nav class="sidebar-nav" id="dashboard-list">
+        <span style="font-size:.75rem; color: var(--color-text-xs); padding:4px 10px;">Loading…</span>
+      </nav>
+    </aside>
+
+    <main class="app-main" id="dashboard-content">
+      <div class="empty-state">Select a dashboard from the sidebar</div>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+
+</html>
