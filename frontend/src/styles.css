@@ -369,3 +369,351 @@ td.cell-error {
   color: #f87171 !important;
   background: rgba(239, 68, 68, .08) !important;
 }
+
+/* ── GitOps Setup Page ──────────────────────────────────── */
+.gitops-setup {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--color-bg);
+  overflow-y: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.gitops-setup-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  max-width: 720px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+
+.gitops-setup-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.gitops-setup-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 16px 0 8px;
+}
+
+.gitops-setup-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.git-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 24px;
+}
+
+.git-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
+}
+
+.git-tab:hover {
+  color: var(--color-text);
+}
+
+.git-tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.git-guide h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 16px;
+}
+
+.git-steps {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+.git-steps code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+}
+
+.git-steps pre {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  margin-top: 6px;
+}
+
+.gitops-setup-note {
+  margin-top: 28px;
+  padding: 12px 16px;
+  background: rgba(99, 102, 241, .1);
+  border: 1px solid rgba(99, 102, 241, .3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Sync Alert Banner ───────────────────────────────────── */
+.sync-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 20px;
+  font-size: var(--font-size-sm);
+  position: relative;
+}
+
+.sync-alert--success {
+  background: rgba(16, 185, 129, .12);
+  border-bottom: 1px solid rgba(16, 185, 129, .3);
+  color: #6ee7b7;
+}
+
+.sync-alert--error {
+  background: rgba(239, 68, 68, .12);
+  border-bottom: 1px solid rgba(239, 68, 68, .3);
+  color: #fca5a5;
+}
+
+.sync-alert strong {
+  flex-shrink: 0;
+}
+
+.sync-alert-detail {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  white-space: pre-wrap;
+  margin-top: 4px;
+  opacity: .8;
+}
+
+.sync-alert-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 16px;
+  opacity: .6;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.sync-alert-close:hover {
+  opacity: 1;
+}
+
+/* ── Sidebar Sync Button ─────────────────────────────────── */
+.sidebar-sync {
+  margin-top: auto;
+  padding: 12px 10px;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.sync-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, opacity .15s;
+}
+
+.sync-btn:hover {
+  background: var(--color-primary-dk);
+}
+
+.sync-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* ── Sync Modal ──────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .7);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.modal-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp .2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.modal-close:hover {
+  color: var(--color-text);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.modal-desc code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+}
+
+.remember-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.remember-label input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.modal-btn {
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background .15s, opacity .15s;
+}
+
+.modal-btn--cancel {
+  background: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.modal-btn--cancel:hover {
+  background: var(--color-border-lt);
+  color: var(--color-text);
+}
+
+.modal-btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.modal-btn--primary:hover {
+  background: var(--color-primary-dk);
+}
+
+.modal-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}

@@ -19,37 +19,161 @@
     ↻ Reconnecting…
   </div>
 
-  <!-- Header -->
-  <header class="app-header">
-    <div class="logo" aria-hidden="true">CM</div>
-    <span class="app-title">Chart-Monitor</span>
-    <div class="header-right">
-      <button id="theme-toggle-btn" class="nav-btn" style="width: auto; padding: 4px 8px; margin-right: 8px;"
-        onclick="toggleTheme()" title="Toggle Theme">🌙 Dark</button>
-      <span class="last-updated" id="last-updated"></span>
-      <div class="status-dot" id="status-dot"></div>
+  <!-- GitOps Unconfigured Page (shown when GitOps is disabled) -->
+  <div id="gitops-unconfigured" class="gitops-setup hidden">
+    <div class="gitops-setup-card">
+      <div class="gitops-setup-header">
+        <div class="logo" style="width:48px;height:48px;font-size:20px;">CM</div>
+        <h1>Connect Your Git Repository</h1>
+        <p class="gitops-setup-subtitle">
+          Chart-Monitor requires a Git repository to load monitoring scripts.
+          Follow the guide below to configure your SSH key and set the required environment variables.
+        </p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="git-tabs" role="tablist">
+        <button class="git-tab git-tab--active" id="tab-github" role="tab"
+          onclick="switchGitTab('github')">GitHub</button>
+        <button class="git-tab" id="tab-gitlab" role="tab" onclick="switchGitTab('gitlab')">GitLab</button>
+        <button class="git-tab" id="tab-bitbucket" role="tab" onclick="switchGitTab('bitbucket')">Bitbucket</button>
+      </div>
+
+      <!-- GitHub Guide -->
+      <div class="git-guide" id="guide-github">
+        <h2>GitHub – Deploy Key Setup</h2>
+        <ol class="git-steps">
+          <li>Generate an SSH key pair:<br>
+            <code>ssh-keygen -t ed25519 -C "chart-monitor-deploy" -f ~/.ssh/id_rsa_chart_monitor -N ""</code>
+          </li>
+          <li>Copy the public key: <code>cat ~/.ssh/id_rsa_chart_monitor.pub</code></li>
+          <li>Go to your GitHub repo → <strong>Settings</strong> → <strong>Deploy keys</strong> → <strong>Add deploy
+              key</strong></li>
+          <li>Paste the public key. Check <strong>"Allow write access"</strong> only if needed. Click <strong>Add
+              key</strong>.</li>
+          <li>Set environment variables:
+            <pre>GIT_SSH_URL=git@github.com:your-org/your-repo.git
+GIT_SSH_KEY_PATH=/path/to/id_rsa_chart_monitor
+GIT_TARGET_PATH=/app/store
+SYNC_SECRET=your-strong-secret</pre>
+          </li>
+        </ol>
+      </div>
+
+      <!-- GitLab Guide -->
+      <div class="git-guide hidden" id="guide-gitlab">
+        <h2>GitLab – Deploy Key Setup</h2>
+        <ol class="git-steps">
+          <li>Generate an SSH key pair:<br>
+            <code>ssh-keygen -t ed25519 -C "chart-monitor-deploy" -f ~/.ssh/id_rsa_chart_monitor -N ""</code>
+          </li>
+          <li>Copy the public key: <code>cat ~/.ssh/id_rsa_chart_monitor.pub</code></li>
+          <li>Go to your GitLab project → <strong>Settings</strong> → <strong>Repository</strong> → <strong>Deploy
+              keys</strong></li>
+          <li>Click <strong>Add new deploy key</strong>, paste the public key, and save.</li>
+          <li>Set environment variables:
+            <pre>GIT_SSH_URL=git@gitlab.com:your-group/your-repo.git
+GIT_SSH_KEY_PATH=/path/to/id_rsa_chart_monitor
+GIT_TARGET_PATH=/app/store
+SYNC_SECRET=your-strong-secret</pre>
+          </li>
+        </ol>
+      </div>
+
+      <!-- Bitbucket Guide -->
+      <div class="git-guide hidden" id="guide-bitbucket">
+        <h2>Bitbucket – Access Key Setup</h2>
+        <ol class="git-steps">
+          <li>Generate an SSH key pair:<br>
+            <code>ssh-keygen -t ed25519 -C "chart-monitor-deploy" -f ~/.ssh/id_rsa_chart_monitor -N ""</code>
+          </li>
+          <li>Copy the public key: <code>cat ~/.ssh/id_rsa_chart_monitor.pub</code></li>
+          <li>Go to your Bitbucket repo → <strong>Repository settings</strong> → <strong>Access keys</strong></li>
+          <li>Click <strong>Add key</strong>, paste the public key, and save.</li>
+          <li>Set environment variables:
+            <pre>GIT_SSH_URL=git@bitbucket.org:your-workspace/your-repo.git
+GIT_SSH_KEY_PATH=/path/to/id_rsa_chart_monitor
+GIT_TARGET_PATH=/app/store
+SYNC_SECRET=your-strong-secret</pre>
+          </li>
+        </ol>
+      </div>
+
+      <div class="gitops-setup-note">
+        <strong>Note:</strong> Restart the backend after setting the environment variables. This page will disappear
+        once all four variables are properly configured.
+      </div>
     </div>
-  </header>
+  </div>
 
-  <!-- Body: sidebar + main -->
-  <div class="app-body">
-    <aside class="sidebar">
-      <div class="sidebar-label" style="display: flex; justify-content: space-between; align-items: center;">
-        <span>Dashboards</span>
+  <!-- Main App (shown when GitOps is enabled) -->
+  <div id="app-main-wrapper">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo" aria-hidden="true">CM</div>
+      <span class="app-title">Chart-Monitor</span>
+      <div class="header-right">
+        <button id="theme-toggle-btn" class="nav-btn" style="width: auto; padding: 4px 8px; margin-right: 8px;"
+          onclick="toggleTheme()" title="Toggle Theme">🌙 Dark</button>
+        <span class="last-updated" id="last-updated"></span>
+        <div class="status-dot" id="status-dot"></div>
       </div>
-      <div style="padding: 0 10px 10px;">
-        <input type="text" id="dashboardSearchInput" class="ui-input"
-          style="width: 100%; border-radius: var(--radius-sm); font-size: var(--font-size-xs); padding: 6px 10px;"
-          placeholder="Search..." aria-label="Search Dashboards">
-      </div>
-      <nav class="sidebar-nav" id="dashboard-list">
-        <span style="font-size:.75rem; color: var(--color-text-xs); padding:4px 10px;">Loading…</span>
-      </nav>
-    </aside>
+    </header>
 
-    <main class="app-main" id="dashboard-content">
-      <div class="empty-state">Select a dashboard from the sidebar</div>
-    </main>
+    <!-- Sync Alert Banner -->
+    <div id="sync-alert" class="sync-alert hidden" role="alert"></div>
+
+    <!-- Body: sidebar + main -->
+    <div class="app-body">
+      <aside class="sidebar">
+        <div class="sidebar-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Dashboards</span>
+        </div>
+        <div style="padding: 0 10px 10px;">
+          <input type="text" id="dashboardSearchInput" class="ui-input"
+            style="width: 100%; border-radius: var(--radius-sm); font-size: var(--font-size-xs); padding: 6px 10px;"
+            placeholder="Search..." aria-label="Search Dashboards">
+        </div>
+        <nav class="sidebar-nav" id="dashboard-list">
+          <span style="font-size:.75rem; color: var(--color-text-xs); padding:4px 10px;">Loading…</span>
+        </nav>
+
+        <!-- Sync Button at the bottom of the sidebar -->
+        <div class="sidebar-sync">
+          <button id="sync-btn" class="sync-btn" onclick="openSyncModal()" title="Sync from Git Repository">
+            ↕ Sync Scripts
+          </button>
+        </div>
+      </aside>
+
+      <main class="app-main" id="dashboard-content">
+        <div class="empty-state">Select a dashboard from the sidebar</div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Sync Secret Modal -->
+  <div id="sync-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Enter Sync Secret">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">🔐 Sync from Git</h2>
+        <button class="modal-close" onclick="closeSyncModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Enter the <code>SYNC_SECRET</code> to authenticate the sync request.</p>
+        <input type="password" id="sync-secret-input" class="ui-input" placeholder="Enter SYNC_SECRET"
+          style="width: 100%; margin-bottom: 12px;" onkeydown="if(event.key==='Enter') submitSync()"
+          aria-label="SYNC_SECRET" />
+        <label class="remember-label">
+          <input type="checkbox" id="sync-remember-checkbox" />
+          Remember me (saves to browser storage)
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn--cancel" onclick="closeSyncModal()">Cancel</button>
+        <button class="modal-btn modal-btn--primary" id="sync-submit-btn" onclick="submitSync()">Sync</button>
+      </div>
+    </div>
   </div>
 
   <script src="./app.js"></script>

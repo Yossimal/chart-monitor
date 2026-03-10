@@ -50,9 +50,17 @@ class FileStore(Store):
     """
 
     def __init__(self, store_dir: str | Path) -> None:
-        self._store_dir = Path(store_dir)
+        self._store_dir = Path(store_dir).resolve()
         self._dashboards: dict[str, Any] = {}   # dashboard_id -> Dashboard class
         self._collectors: dict[str, Any] = {}   # class name  -> Collector class
+        
+        # Inject the parent dir into sys.path so dashboard scripts
+        # can import each other via `from store.collector import X`
+        import sys
+        parent_dir = str(self._store_dir.parent)
+        if parent_dir not in sys.path:
+            sys.path.insert(0, parent_dir)
+            
         self.reload()
 
     # ------------------------------------------------------------------

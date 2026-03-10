@@ -18,11 +18,10 @@ let maxDataValue = 10000;
 let cachedDashboards = [];
 
 // ── Table State ───────────────────────────────────────────────────────────────
-// We store raw data from backend to perform client-side filtering/sorting/pagination
 let rawData = { columns: [], rows: [] };
 let tableState = {
     sortColumn: null,
-    sortDirection: 'asc', // 'asc' | 'desc'
+    sortDirection: 'asc',
     filterText: '',
     currentPage: 0,
     pageSize: 50
@@ -36,6 +35,134 @@ const $content = document.getElementById("dashboard-content");
 const $lastUpdated = document.getElementById("last-updated");
 const $statusDot = document.getElementById("status-dot");
 const $dashboardSearchInput = document.getElementById("dashboardSearchInput");
+const $syncAlert = document.getElementById("sync-alert");
+const $gitopsUnconfigured = document.getElementById("gitops-unconfigured");
+const $appMainWrapper = document.getElementById("app-main-wrapper");
+
+// ── GitOps Setup Page ─────────────────────────────────────────────────────────
+
+function switchGitTab(provider) {
+    ["github", "gitlab", "bitbucket"].forEach(p => {
+        document.getElementById(`guide-${p}`).classList.add("hidden");
+        document.getElementById(`tab-${p}`).classList.remove("git-tab--active");
+    });
+    document.getElementById(`guide-${provider}`).classList.remove("hidden");
+    document.getElementById(`tab-${provider}`).classList.add("git-tab--active");
+}
+
+async function checkGitOpsStatus() {
+    try {
+        const resp = await fetch(`${API_BASE}/api/v1/git/status`);
+        if (!resp.ok) throw new Error("Status endpoint failed");
+        const data = await resp.json();
+        if (data.enabled) {
+            $gitopsUnconfigured.classList.add("hidden");
+            $appMainWrapper.classList.remove("hidden");
+        } else {
+            $gitopsUnconfigured.classList.remove("hidden");
+            $appMainWrapper.classList.add("hidden");
+        }
+    } catch (_e) {
+        // If backend is unreachable, assume GitOps is disabled and stay on setup page
+        $gitopsUnconfigured.classList.remove("hidden");
+        $appMainWrapper.classList.add("hidden");
+    }
+}
+
+// ── GitOps Sync Modal ─────────────────────────────────────────────────────────
+
+const STORAGE_KEY_SECRET = "cm-sync-secret";
+
+function openSyncModal() {
+    const saved = localStorage.getItem(STORAGE_KEY_SECRET);
+    const input = document.getElementById("sync-secret-input");
+    const remember = document.getElementById("sync-remember-checkbox");
+    if (saved) {
+        input.value = saved;
+        remember.checked = true;
+    } else {
+        input.value = "";
+        remember.checked = false;
+    }
+    document.getElementById("sync-modal").classList.remove("hidden");
+    setTimeout(() => input.focus(), 50);
+}
+
+function closeSyncModal() {
+    document.getElementById("sync-modal").classList.add("hidden");
+}
+
+function showSyncAlert(success, message, details) {
+    if (!$syncAlert) return;
+    const icon = success ? "✅" : "❌";
+    const colorClass = success ? "sync-alert--success" : "sync-alert--error";
+    $syncAlert.className = `sync-alert ${colorClass}`;
+    $syncAlert.innerHTML = `
+        <strong>${icon} ${success ? "Sync Successful" : "Sync Failed"}</strong>
+        <span>${message}</span>
+        ${details ? `<pre class="sync-alert-detail">${details}</pre>` : ""}
+        <button class="sync-alert-close" onclick="this.parentElement.classList.add('hidden')" aria-label="Dismiss">✕</button>
+    `;
+    $syncAlert.classList.remove("hidden");
+    // Auto-dismiss on success after 8 seconds
+    if (success) {
+        setTimeout(() => $syncAlert.classList.add("hidden"), 8000);
+    }
+}
+
+async function submitSync() {
+    const input = document.getElementById("sync-secret-input");
+    const remember = document.getElementById("sync-remember-checkbox");
+    const submitBtn = document.getElementById("sync-submit-btn");
+    const secret = input.value.trim();
+
+    if (!secret) {
+        input.focus();
+        return;
+    }
+
+    // Persist or clear from localStorage
+    if (remember.checked) {
+        localStorage.setItem(STORAGE_KEY_SECRET, secret);
+    } else {
+        localStorage.removeItem(STORAGE_KEY_SECRET);
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Syncing…";
+
+    try {
+        const resp = await fetch(`${API_BASE}/api/v1/git/sync`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${secret}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        const data = await resp.json();
+
+        if (resp.ok && data.success) {
+            closeSyncModal();
+            showSyncAlert(true, data.message, data.details);
+            // Reload dashboard list after successful sync
+            await loadDashboardList();
+        } else {
+            // Show error in the alert and keep modal open
+            closeSyncModal();
+            const errorMsg = resp.status === 401
+                ? "Invalid SYNC_SECRET. Please check your credentials."
+                : (data.detail || data.message || `Server returned ${resp.status}`);
+            showSyncAlert(false, errorMsg, data.details || "");
+        }
+    } catch (err) {
+        closeSyncModal();
+        showSyncAlert(false, "Network error during sync.", err.message || "");
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sync";
+    }
+}
 
 // ── Search Listeners ──────────────────────────────────────────────────────────
 if ($dashboardSearchInput) {
@@ -48,19 +175,23 @@ if ($dashboardSearchInput) {
 
 function setConnected(ok) {
     isConnected = ok;
-    if (ok) {
-        $bannerDisc.classList.add("hidden");
-        $bannerConn.classList.add("hidden");
-        $statusDot.className = "status-dot status-dot--ok";
-    } else {
-        $bannerDisc.classList.remove("hidden");
-        $statusDot.className = "status-dot status-dot--error";
+    if ($bannerDisc && $bannerConn && $statusDot) {
+        if (ok) {
+            $bannerDisc.classList.add("hidden");
+            $bannerConn.classList.add("hidden");
+            $statusDot.className = "status-dot status-dot--ok";
+        } else {
+            $bannerDisc.classList.remove("hidden");
+            $statusDot.className = "status-dot status-dot--error";
+        }
     }
 }
 
 function showConnecting() {
-    $bannerConn.classList.remove("hidden");
-    $bannerDisc.classList.add("hidden");
+    if ($bannerConn && $bannerDisc) {
+        $bannerConn.classList.remove("hidden");
+        $bannerDisc.classList.add("hidden");
+    }
 }
 
 // ── Fetch helpers ─────────────────────────────────────────────────────────────
@@ -84,12 +215,15 @@ async function loadDashboardList() {
         }
     } catch (_err) {
         setConnected(false);
-        $navList.innerHTML = `<span style="font-size:.72rem; color: var(--color-red); padding: 4px 10px;">Cannot reach server</span>`;
+        if ($navList) {
+            $navList.innerHTML = `<span style="font-size:.72rem; color: var(--color-red); padding: 4px 10px;">Cannot reach server</span>`;
+        }
         scheduleReconnect();
     }
 }
 
 function renderSidebar(dashboards, filterText = "") {
+    if (!$navList) return;
     let filtered = dashboards;
     if (filterText) {
         const lower = filterText.toLowerCase();
@@ -119,7 +253,6 @@ function renderSidebar(dashboards, filterText = "") {
 // ── Dashboard selection ───────────────────────────────────────────────────────
 
 function selectDashboard(dashboardId, scrapeInterval) {
-    // De-activate old button
     if (currentDashboardId) {
         const old = document.getElementById(`nav-${currentDashboardId}`);
         if (old) old.classList.remove("nav-btn--active");
@@ -127,14 +260,11 @@ function selectDashboard(dashboardId, scrapeInterval) {
     currentDashboardId = dashboardId;
     clearInterval(pollingTimer);
 
-    // Activate new button
     const btn = document.getElementById(`nav-${dashboardId}`);
     if (btn) btn.classList.add("nav-btn--active");
 
-    // Configure specific scrape interval or fall back to 30
     currentScrapeInterval = scrapeInterval || 30;
 
-    // Reset table state for new dashboard
     tableState.sortColumn = null;
     tableState.sortDirection = 'asc';
     tableState.filterText = '';
@@ -155,7 +285,7 @@ function startPolling() {
 function handleRefresh() {
     if (currentDashboardId) {
         fetchAndRender(currentDashboardId);
-        startPolling(); // reset timer
+        startPolling();
     }
 }
 
@@ -172,7 +302,7 @@ function handleMaxChange(val) {
     if (isNaN(num)) num = 10000;
     maxDataValue = num;
     if (currentDashboardId) {
-        renderProcessedTable(); // Re-render with new max limits
+        renderProcessedTable();
     }
 }
 
@@ -205,7 +335,7 @@ async function fetchAndRender(dashboardId) {
         const data = await apiFetch(`/api/v1/dashboards/${dashboardId}/data`);
         setConnected(true);
         renderDashboard(data);
-        $lastUpdated.textContent = new Date().toLocaleTimeString();
+        if ($lastUpdated) $lastUpdated.textContent = new Date().toLocaleTimeString();
     } catch (_err) {
         setConnected(false);
         showConnecting();
@@ -214,6 +344,7 @@ async function fetchAndRender(dashboardId) {
 }
 
 function renderDashboard(data) {
+    if (!$content) return;
     if (data.error) {
         $content.innerHTML = `
       <div class="dashboard-card dashboard-card--error">
@@ -233,10 +364,7 @@ function renderDashboard(data) {
         return;
     }
 
-    // Capture raw data for client-side operations
     rawData = data;
-
-    // Perform data operations: Filter -> Sort -> Paginate
     renderProcessedTable();
 }
 
@@ -269,53 +397,37 @@ function handlePageChange(offset) {
 function getFilteredAndSortedRows() {
     let rows = [...rawData.rows];
 
-    // 0. Max Data Clipping (US2)
-    if (maxDataValue < 0) {
-        maxDataValue = 0;
-    }
+    if (maxDataValue < 0) maxDataValue = 0;
     rows = rows.slice(0, maxDataValue);
 
-    // 1. Filter
     if (tableState.filterText) {
         rows = rows.filter(row => {
             return rawData.columns.some(col => {
                 const cell = row[col];
                 if (!cell) return false;
-                const searchVal = cell.display !== undefined ? String(cell.display) : String(cell.value || "");
+                const searchVal = (cell.display !== undefined && cell.display !== null)
+                    ? String(cell.display)
+                    : String(cell.value || "");
                 return searchVal.toLowerCase().includes(tableState.filterText);
             });
         });
     }
 
-    // 2. Sort
     if (tableState.sortColumn) {
         const col = tableState.sortColumn;
         const dir = tableState.sortDirection === 'asc' ? 1 : -1;
-
-        // Determine column type heuristics for sorting
         let isNumeric = true;
         for (const r of rows) {
-            const v = (r[col] && r[col].value !== undefined) ? r[col].value : null;
-            if (v !== null && isNaN(Number(v))) {
-                isNumeric = false;
-                break;
-            }
+            const v = (r[col] && r[col].value !== undefined && r[col].value !== null) ? r[col].value : null;
+            if (v !== null && isNaN(Number(v))) { isNumeric = false; break; }
         }
-
         rows.sort((a, b) => {
-            let valA = (a[col] && a[col].value !== undefined) ? a[col].value : null;
-            let valB = (b[col] && b[col].value !== undefined) ? b[col].value : null;
-
-            // nulls always at the bottom (lowest value)
+            let valA = (a[col] && a[col].value !== undefined && a[col].value !== null) ? a[col].value : null;
+            let valB = (b[col] && b[col].value !== undefined && b[col].value !== null) ? b[col].value : null;
             if (valA === null && valB === null) return 0;
             if (valA === null) return -1 * dir;
             if (valB === null) return 1 * dir;
-
-            if (isNumeric) {
-                return (Number(valA) - Number(valB)) * dir;
-            }
-
-            // String sort fallback
+            if (isNumeric) return (Number(valA) - Number(valB)) * dir;
             const strA = String(valA).toLowerCase();
             const strB = String(valB).toLowerCase();
             if (strA < strB) return -1 * dir;
@@ -323,15 +435,13 @@ function getFilteredAndSortedRows() {
             return 0;
         });
     }
-
     return rows;
 }
 
 function renderProcessedTable() {
+    if (!$content) return;
     const processedRows = getFilteredAndSortedRows();
     const totalCount = processedRows.length;
-
-    // 3. Paginate
     const startIndex = tableState.currentPage * tableState.pageSize;
     const paginatedRows = processedRows.slice(startIndex, startIndex + tableState.pageSize);
 
@@ -345,12 +455,13 @@ function renderProcessedTable() {
                 </th>`;
     }).join("")}</tr>`;
 
-    // Extract unique strings for Autocomplete HTML5 DataList
     const allStringValues = new Set();
     rawData.rows.forEach(r => {
         rawData.columns.forEach(c => {
             if (r[c]) {
-                const val = r[c].display !== undefined ? String(r[c].display) : String(r[c].value || "");
+                const val = (r[c].display !== undefined && r[c].display !== null)
+                    ? String(r[c].display)
+                    : String(r[c].value || "");
                 if (val) allStringValues.add(val);
             }
         });
@@ -360,12 +471,10 @@ function renderProcessedTable() {
     let tbody = paginatedRows.map(row => {
         const cells = rawData.columns.map(col => {
             const cell = row[col] || { value: "", style: "" };
-            const rawValue = cell.value !== undefined ? cell.value : "";
-            const displayValue = cell.display !== undefined ? cell.display : rawValue;
-
+            const rawValue = (cell.value !== undefined && cell.value !== null) ? cell.value : "";
+            const displayValue = (cell.display !== undefined && cell.display !== null) ? cell.display : rawValue;
             const styleAttr = cell.style ? ` style="${esc(cell.style)}"` : "";
             const classAttr = (cell.style === "cell-error") ? ` class="cell-error"` : "";
-
             return `<td${classAttr}${styleAttr} data-value="${esc(String(rawValue))}">${esc(String(displayValue))}</td>`;
         }).join("");
         return `<tr>${cells}</tr>`;
@@ -424,7 +533,6 @@ function renderProcessedTable() {
       </div>
     </div>`;
 
-    // Restore focus to input if it was active
     setTimeout(() => {
         const input = document.getElementById("tableFilterInput");
         if (input && document.activeElement !== input) {
@@ -460,4 +568,9 @@ function esc(s) {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 initTheme();
-loadDashboardList();
+checkGitOpsStatus().then(() => {
+    // Only start the main app if GitOps is enabled
+    if (!$appMainWrapper.classList.contains("hidden")) {
+        loadDashboardList();
+    }
+});

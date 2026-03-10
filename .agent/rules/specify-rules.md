@@ -11,6 +11,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-09
 - File-system (Pure GitOps) (001-core-engine)
 - Python 3.11+ (Backend), TypeScript / Vanilla JS (Frontend) + FastAPI (Backend), DOM API / Vanilla JS (Frontend) [NEEDS CLARIFICATION: Best lightweight, framework-free library for virtualizing 10k rows if raw DOM is insufficient?] (001-ui-enhancements)
 - N/A (State kept in browser/URL) (001-ui-enhancements)
+- Python 3.11+ (Backend), TypeScript/Vanilla (Frontend) + FastAPI, RestrictedPython, Pytest (Backend) (002-gitops-sync)
+- Git repository (remote), Local Filesystem (target path) (002-gitops-sync)
 
 - Python 3.11+ (Backend), TypeScript/Vanilla Web (Frontend) + FastAPI, RestrictedPython, PyYAML, Tailwind CSS (via CDN or simple build) (001-core-engine)
 
@@ -31,9 +33,9 @@ cd src; pytest; ruff check .
 Python 3.11+ (Backend), TypeScript/Vanilla Web (Frontend): Follow standard conventions
 
 ## Recent Changes
+- 002-gitops-sync: Added Python 3.11+ (Backend), TypeScript/Vanilla (Frontend) + FastAPI, RestrictedPython, Pytest (Backend)
 - 001-ui-enhancements: Added Python 3.11+ (Backend), TypeScript / Vanilla JS (Frontend) + FastAPI (Backend), DOM API / Vanilla JS (Frontend) [NEEDS CLARIFICATION: Best lightweight, framework-free library for virtualizing 10k rows if raw DOM is insufficient?]
 - 001-core-engine: Added Python 3.11+ (Backend), Vanilla HTML/JS/CSS (Frontend) + FastAPI, RestrictedPython, Pytest
-- 001-core-engine: Added Python 3.11+ (Backend), Vanilla HTML/JS/CSS (Frontend) + FastAPI, RestrictedPython, HashiCorp Vault (or k8s secrets) client, Tailwind CSS
 
 
 <!-- MANUAL ADDITIONS START -->
