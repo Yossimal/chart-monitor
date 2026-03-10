@@ -19,15 +19,18 @@ class DashboardMeta(BaseModel):
     id: str
     name: str
     scrape_interval_seconds: int
+    dashboard_name: str | None = None
 
 
 class CellResult(BaseModel):
-    value: str
+    value: Any
+    display: str | None = None
     style: str
 
 
 class DashboardDataResponse(BaseModel):
     dashboard_id: str
+    dashboard_name: str | None = None
     columns: list[str]
     rows: list[dict[str, CellResult]]
     scrape_interval_seconds: int

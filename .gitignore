@@ -12,14 +12,15 @@ dist/
 .coverage
 htmlcov/
 
-# Node / Tailwind build
+# Frontend
 node_modules/
 frontend/dist/
-frontend/src/output.css
 
-# Environment
+# Environment & Secrets
 .env
 .env.*
+.chart-monitor-token
+*.token
 
 # OS
 .DS_Store

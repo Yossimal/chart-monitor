@@ -24,6 +24,8 @@
     <div class="logo" aria-hidden="true">CM</div>
     <span class="app-title">Chart-Monitor</span>
     <div class="header-right">
+      <button id="theme-toggle-btn" class="nav-btn" style="width: auto; padding: 4px 8px; margin-right: 8px;"
+        onclick="toggleTheme()" title="Toggle Theme">🌙 Dark</button>
       <span class="last-updated" id="last-updated"></span>
       <div class="status-dot" id="status-dot"></div>
     </div>
@@ -32,7 +34,14 @@
   <!-- Body: sidebar + main -->
   <div class="app-body">
     <aside class="sidebar">
-      <div class="sidebar-label">Dashboards</div>
+      <div class="sidebar-label" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Dashboards</span>
+      </div>
+      <div style="padding: 0 10px 10px;">
+        <input type="text" id="dashboardSearchInput" class="ui-input"
+          style="width: 100%; border-radius: var(--radius-sm); font-size: var(--font-size-xs); padding: 6px 10px;"
+          placeholder="Search..." aria-label="Search Dashboards">
+      </div>
       <nav class="sidebar-nav" id="dashboard-list">
         <span style="font-size:.75rem; color: var(--color-text-xs); padding:4px 10px;">Loading…</span>
       </nav>

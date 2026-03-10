@@ -31,9 +31,10 @@ from src.models.collector import Collector
 logger = logging.getLogger(__name__)
 
 
-class CellResult(TypedDict):
+class CellResult(TypedDict, total=False):
     """Shape returned by each @dashboardColumn method."""
-    value: str
+    value: Any
+    display: str
     style: str
 
 

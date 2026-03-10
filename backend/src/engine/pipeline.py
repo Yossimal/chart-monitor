@@ -46,6 +46,20 @@ def run_dashboard(dashboard_id: str) -> dict[str, Any] | None:
 
     result = _extractor.process(dashboard)
     result["dashboard_id"] = dashboard_id
+    
+    dashboard_name_val = None
+    set_name_fn = getattr(dashboard, "set_name", None)
+    if set_name_fn and callable(set_name_fn):
+        try:
+            dashboard_name_val = str(set_name_fn())
+            if len(dashboard_name_val) > 150:
+                logger.warning("Dashboard '%s' set_name exceeds 150 characters.", dashboard_id)
+                dashboard_name_val = "Error: set_name exceeds 150 characters"
+        except Exception as exc:
+            logger.warning("Error evaluating set_name for '%s': %s", dashboard_id, exc)
+            
+    result["dashboard_name"] = dashboard_name_val
+
     return result
 
 
@@ -56,14 +70,28 @@ def list_dashboards() -> list[dict[str, Any]]:
         try:
             dashboard = dashboard_cls()
             collector = dashboard.getCollector()
+            
+            dashboard_name_val = None
+            set_name_fn = getattr(dashboard, "set_name", None)
+            
+            if set_name_fn and callable(set_name_fn):
+                try:
+                    dashboard_name_val = str(set_name_fn())
+                    if len(dashboard_name_val) > 150:
+                        logger.warning("Dashboard '%s' set_name exceeds 150 characters.", dashboard_id)
+                        dashboard_name_val = "Error: set_name exceeds 150 characters"
+                except Exception as exc:
+                    logger.warning("Error evaluating set_name for '%s': %s", dashboard_id, exc)
+
             out.append(
                 {
                     "id": dashboard_id,
                     "name": dashboard_id,
                     "scrape_interval_seconds": collector.scrape_interval,
+                    "dashboard_name": dashboard_name_val
                 }
             )
         except Exception as exc:
             logger.warning("Cannot introspect dashboard '%s': %s", dashboard_id, exc)
-            out.append({"id": dashboard_id, "name": dashboard_id, "scrape_interval_seconds": 30})
+            out.append({"id": dashboard_id, "name": dashboard_id, "scrape_interval_seconds": 30, "dashboard_name": None})
     return out
