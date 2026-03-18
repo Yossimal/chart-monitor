@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(pip install:*)",
+      "Bash(taskkill /F /PID 35860)",
+      "Bash(taskkill /F /PID 33108)",
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly)",
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/setup-plan.ps1 -Json)",
+      "WebSearch",
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/update-agent-context.ps1 -AgentType claude)",
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/check-prerequisites.ps1 -Json)",
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)",
+      "Bash(npm --version)",
+      "Bash(powershell -Command \"Invoke-RestMethod -Uri 'https://api.github.com/repos/sql-js/sql.js/releases/latest' -UseBasicParsing | Select-Object -ExpandProperty tag_name\" 2>&1)",
+      "Bash(powershell -Command \"Invoke-RestMethod -Uri 'https://api.github.com/repos/sql-js/sql.js/releases/latest' -UseBasicParsing | Select-Object -ExpandProperty assets | Select-Object -ExpandProperty name\" 2>&1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File frontend/scripts/download-sqljs.ps1)",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
+      "Bash(tasklist)",
+      "Bash(curl -s http://localhost:8000/api/v1/dashboards)",
+      "Bash(curl -s http://localhost:8000/api/v1/git/status)",
+      "Bash(GIT_SSH_COMMAND=\"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null\" git -C \"D:/Develop/cloudops/chart-monitor/store/\" fetch origin)",
+      "Bash(git -C \"D:/Develop/cloudops/chart-monitor/store/\" log --all --oneline)",
+      "Bash(curl:*)",
+      "Bash(GIT_SSH_COMMAND='ssh -i \"\"D:/Develop/cloudops/chart-monitor/ssh/id_rsa\"\" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' git -C \"D:/Develop/cloudops/chart-monitor/store/\" fetch origin)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(ssh -i \"D:/Develop/cloudops/chart-monitor/ssh/id_rsa\" -o StrictHostKeyChecking=no -T git@github.com)",
+      "Bash(ssh -i \"D:/Develop/cloudops/chart-monitor/ssh/id_rsa\" -o StrictHostKeyChecking=no -vvv -T git@github.com)",
+      "Bash(ssh -i \"D:/Develop/cloudops/chart-monitor/ssh/id_rsa\" -o StrictHostKeyChecking=no -p 443 -T git@ssh.github.com)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(r\\) for r in d[''''rows''''][:5]]\")",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__click",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_snapshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__evaluate_script"
+    ]
+  }
+}
