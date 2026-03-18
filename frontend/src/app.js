@@ -27,6 +27,10 @@ let tableState = {
     pageSize: 50
 };
 
+// ── SQL Filter State ──────────────────────────────────────────────────────────
+let _sqlFilterMode = false;
+let _sqlResultData = null; // {columns: [], rows: []} — set when SQL query ran successfully
+
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const $bannerDisc = document.getElementById("banner-disconnected");
 const $bannerConn = document.getElementById("banner-connecting");
@@ -270,6 +274,7 @@ function selectDashboard(dashboardId, scrapeInterval) {
     tableState.filterText = '';
     tableState.currentPage = 0;
 
+    resetSqlFilter();
     fetchAndRender(dashboardId);
     startPolling();
 }
@@ -440,17 +445,24 @@ function getFilteredAndSortedRows() {
 
 function renderProcessedTable() {
     if (!$content) return;
-    const processedRows = getFilteredAndSortedRows();
-    const totalCount = processedRows.length;
-    const startIndex = tableState.currentPage * tableState.pageSize;
-    const paginatedRows = processedRows.slice(startIndex, startIndex + tableState.pageSize);
 
-    const thead = `<tr>${rawData.columns.map(c => {
+    // In SQL mode with results: display SQL result rows directly (no sort/filter/pagination)
+    const isSqlActive = _sqlFilterMode && _sqlResultData;
+    const activeColumns = isSqlActive ? _sqlResultData.columns : rawData.columns;
+    const processedRows = isSqlActive ? _sqlResultData.rows : getFilteredAndSortedRows();
+    const totalCount = processedRows.length;
+    const startIndex = isSqlActive ? 0 : tableState.currentPage * tableState.pageSize;
+    const paginatedRows = isSqlActive
+        ? processedRows
+        : processedRows.slice(startIndex, startIndex + tableState.pageSize);
+
+    const thead = `<tr>${activeColumns.map(c => {
         let sortIndicator = "";
-        if (tableState.sortColumn === c) {
+        if (!isSqlActive && tableState.sortColumn === c) {
             sortIndicator = tableState.sortDirection === 'asc' ? " ▴" : " ▾";
         }
-        return `<th onclick="handleSort('${esc(c)}')" style="cursor: pointer; user-select: none;">
+        const sortHandler = isSqlActive ? '' : `onclick="handleSort('${esc(c)}')"`;
+        return `<th ${sortHandler} style="cursor: ${isSqlActive ? 'default' : 'pointer'}; user-select: none;">
                   ${esc(c)}<span class="sort-icon">${sortIndicator}</span>
                 </th>`;
     }).join("")}</tr>`;
@@ -469,7 +481,7 @@ function renderProcessedTable() {
     const datalistOptions = Array.from(allStringValues).map(v => `<option value="${esc(v)}">`).join("");
 
     let tbody = paginatedRows.map(row => {
-        const cells = rawData.columns.map(col => {
+        const cells = activeColumns.map(col => {
             const cell = row[col] || { value: "", style: "" };
             const rawValue = (cell.value !== undefined && cell.value !== null) ? cell.value : "";
             const displayValue = (cell.display !== undefined && cell.display !== null) ? cell.display : rawValue;
@@ -481,18 +493,46 @@ function renderProcessedTable() {
     }).join("");
 
     if (paginatedRows.length === 0) {
-        tbody = `<tr><td colspan="${rawData.columns.length}" style="text-align: center; color: var(--color-text-xs); padding: 30px 10px;">
-                    No matching data found for filter: "${esc(tableState.filterText)}" or max items threshold reached.
+        const emptyMsg = isSqlActive
+            ? 'SQL query returned 0 rows.'
+            : `No matching data found for filter: "${esc(tableState.filterText)}" or max items threshold reached.`;
+        tbody = `<tr><td colspan="${activeColumns.length}" style="text-align: center; color: var(--color-text-xs); padding: 30px 10px;">
+                    ${emptyMsg}
                  </td></tr>`;
     }
 
+    const sqlToggleVisible = window._sqlEngine != null;
+    const sqlToggleBtn = sqlToggleVisible
+        ? `<button id="sql-filter-toggle" class="sql-filter-toggle${_sqlFilterMode ? ' sql-filter-toggle--active' : ''}"
+               onclick="toggleSqlFilterMode()" title="${_sqlFilterMode ? 'Switch to Simple filter' : 'Switch to SQL filter'}">
+             ${_sqlFilterMode ? 'SQL ✓' : 'SQL'}
+           </button>`
+        : '';
+
+    const simpleFilterHtml = `
+      <input type="text" list="table-filters" class="ui-input" id="tableFilterInput"
+             placeholder="Filter table..." value="${esc(tableState.filterText)}"
+             onkeyup="handleFilter(this.value)" onchange="handleFilter(this.value)"
+             style="flex: 1; min-width: 250px; ${_sqlFilterMode ? 'display:none;' : ''}">
+      <datalist id="table-filters">${datalistOptions}</datalist>`;
+
+    const sqlInputHtml = _sqlFilterMode ? `
+      <div class="sql-filter-input-bar" style="flex: 1; display: flex; gap: 6px; min-width: 0; align-items: flex-start;">
+        <textarea id="sql-filter-input" class="sql-filter-input"
+            rows="1" placeholder="SELECT * FROM data WHERE ..."
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();executeSqlFilter(this.value);}"
+            style="flex: 1; min-width: 0;"
+        ></textarea>
+        <button class="nav-btn" id="sql-filter-run" style="white-space: nowrap; flex-shrink: 0; width: auto; padding: 4px 12px; border: 1px solid var(--color-border);"
+            onclick="executeSqlFilter(document.getElementById('sql-filter-input').value)">▶ Run</button>
+      </div>
+      <div id="sql-filter-error" class="sql-filter-error"></div>` : '';
+
     $content.innerHTML = `
     <div class="dashboard-controls" style="display: flex; gap: 10px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;">
-      <input type="text" list="table-filters" class="ui-input" id="tableFilterInput" 
-             placeholder="Filter table..." value="${esc(tableState.filterText)}" 
-             onkeyup="handleFilter(this.value)" onchange="handleFilter(this.value)"
-             style="flex: 1; min-width: 250px;">
-      <datalist id="table-filters">${datalistOptions}</datalist>
+      ${sqlToggleBtn}
+      ${simpleFilterHtml}
+      ${sqlInputHtml}
       <div style="display: flex; gap: 10px; align-items: center; border-left: 1px solid var(--color-border); padding-left: 10px;">
           <input type="number" class="ui-input" id="maxItemsInput" value="${maxDataValue}" 
                  onchange="handleMaxChange(this.value)" placeholder="Max rows" style="width: 100px;" title="Rows cap (set < 0 for empty)">
@@ -523,23 +563,28 @@ function renderProcessedTable() {
       </div>
       
       <div class="dashboard-footer" style="padding: 12px 18px; border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; font-size: var(--font-size-xs);">
-        <span>Page ${tableState.currentPage + 1} of ${Math.ceil(totalCount / tableState.pageSize) || 1}</span>
+        <span>${isSqlActive ? `SQL: ${totalCount} row(s)` : `Page ${tableState.currentPage + 1} of ${Math.ceil(totalCount / tableState.pageSize) || 1}`}</span>
         <div style="display: flex; gap: 8px;">
-           <button class="nav-btn" style="width: auto; padding: 4px 10px; border: 1px solid var(--color-border);" 
-                   onclick="handlePageChange(-1)" ${tableState.currentPage === 0 ? "disabled" : ""}>Previous</button>
-           <button class="nav-btn" style="width: auto; padding: 4px 10px; border: 1px solid var(--color-border);" 
-                   onclick="handlePageChange(1)" ${(tableState.currentPage + 1) * tableState.pageSize >= totalCount ? "disabled" : ""}>Next</button>
+           <button class="nav-btn" style="width: auto; padding: 4px 10px; border: 1px solid var(--color-border);"
+                   onclick="handlePageChange(-1)" ${isSqlActive || tableState.currentPage === 0 ? "disabled" : ""}>Previous</button>
+           <button class="nav-btn" style="width: auto; padding: 4px 10px; border: 1px solid var(--color-border);"
+                   onclick="handlePageChange(1)" ${isSqlActive || (tableState.currentPage + 1) * tableState.pageSize >= totalCount ? "disabled" : ""}>Next</button>
         </div>
       </div>
     </div>`;
 
     setTimeout(() => {
-        const input = document.getElementById("tableFilterInput");
-        if (input && document.activeElement !== input) {
-            const tempval = input.value;
-            input.focus();
-            input.value = '';
-            input.value = tempval;
+        if (_sqlFilterMode) {
+            const sqlIn = document.getElementById("sql-filter-input");
+            if (sqlIn && document.activeElement !== sqlIn) sqlIn.focus();
+        } else {
+            const input = document.getElementById("tableFilterInput");
+            if (input && document.activeElement !== input) {
+                const tempval = input.value;
+                input.focus();
+                input.value = '';
+                input.value = tempval;
+            }
         }
     }, 0);
 }
@@ -566,7 +611,93 @@ function esc(s) {
         .replace(/"/g, "&quot;");
 }
 
+// ── SQL Filter ────────────────────────────────────────────────────────────────
+
+function toggleSqlFilterMode() {
+    if (window._sqlEngine == null) return; // sql.js unavailable
+    _sqlFilterMode = !_sqlFilterMode;
+    if (!_sqlFilterMode) {
+        _sqlResultData = null; // clear SQL results when switching back
+    }
+    renderProcessedTable();
+}
+
+function resetSqlFilter() {
+    _sqlFilterMode = false;
+    _sqlResultData = null;
+}
+
+/**
+ * Build an in-memory sql.js Database from the current rawData.
+ * Table is named `data`, columns are rawData.columns (all TEXT).
+ * Values are extracted from the {value, style, display} cell format.
+ */
+function buildSqlDatabase() {
+    const db = new window._sqlEngine.Database();
+    const cols = rawData.columns;
+    if (cols.length === 0) return db;
+    const colDefs = cols.map(c => `"${c}" TEXT`).join(', ');
+    db.run(`CREATE TABLE data (${colDefs})`);
+    const placeholders = cols.map(() => '?').join(', ');
+    for (const row of rawData.rows) {
+        const vals = cols.map(c => {
+            const cell = row[c];
+            if (!cell) return null;
+            const v = cell.value !== undefined && cell.value !== null ? cell.value : null;
+            return v !== null ? String(v) : null;
+        });
+        db.run(`INSERT INTO data VALUES (${placeholders})`, vals);
+    }
+    return db;
+}
+
+/**
+ * Execute a SQL query against the current table data and re-render the table.
+ * On success, stores results in _sqlResultData and calls renderProcessedTable().
+ * On error, shows the error message under the SQL input.
+ */
+function executeSqlFilter(sqlQuery) {
+    const errorEl = document.getElementById('sql-filter-error');
+    if (!sqlQuery || !sqlQuery.trim()) return;
+    if (window._sqlEngine == null) return;
+
+    let db;
+    try {
+        db = buildSqlDatabase();
+        const results = db.exec(sqlQuery.trim());
+        if (!results || results.length === 0) {
+            _sqlResultData = { columns: rawData.columns, rows: [] };
+        } else {
+            const { columns, values } = results[0];
+            const rows = values.map(vals => {
+                const row = {};
+                columns.forEach((col, i) => {
+                    row[col] = { value: vals[i] !== null ? vals[i] : '', style: '' };
+                });
+                return row;
+            });
+            _sqlResultData = { columns, rows };
+        }
+        if (errorEl) errorEl.textContent = '';
+        renderProcessedTable();
+    } catch (err) {
+        if (errorEl) errorEl.textContent = String(err);
+        _sqlResultData = null;
+    } finally {
+        if (db) db.close();
+    }
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
+
+// Initialize sql.js WASM (async, non-blocking — sets window._sqlEngine or null)
+window._sqlEngine = null;
+if (typeof initSqlJs === 'function') {
+    initSqlJs({ locateFile: f => `./assets/${f}` })
+        .then(SQL => { window._sqlEngine = SQL; })
+        .catch(() => { window._sqlEngine = null; });
+}
+
 initTheme();
 checkGitOpsStatus().then(() => {
     // Only start the main app if GitOps is enabled

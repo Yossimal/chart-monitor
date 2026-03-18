@@ -16,6 +16,11 @@ htmlcov/
 node_modules/
 frontend/dist/
 
+# sql.js bundled assets (downloaded at build/deploy time, not committed)
+frontend/src/assets/sql-wasm.js
+frontend/src/assets/sql-wasm.wasm
+frontend/src/assets/*.zip
+
 # Environment & Secrets
 .env
 .env.*
