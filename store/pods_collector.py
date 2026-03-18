@@ -39,7 +39,6 @@ class PodsCollector(HTTPCollector):
     @secret("K8S_TOKEN")
     def collect(self, secrets: dict[str, str] | None = None) -> list[dict[str, Any]]:
         import requests
-
         token = (secrets or {}).get("K8S_TOKEN", "")
         response = requests.get(
             self.url(),

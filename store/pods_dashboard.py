@@ -61,11 +61,6 @@ class PodsDashboard(TableDashboard):
             style = "color: #ef4444; font-weight: 700;"
         return {"value": str(total), "style": style}
 
-    @dashboardColumn("Node")
-    def node(self, row: dict[str, Any]) -> CellResult:
-        node = row.get("spec", {}).get("nodeName", "—")
-        return {"value": node, "style": "color: #71717a; font-family: monospace;"}
-
     @dashboardColumn("Age")
     def age(self, row: dict[str, Any]) -> CellResult:
         from datetime import datetime, timezone
