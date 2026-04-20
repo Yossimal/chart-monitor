@@ -1,12 +1,13 @@
 /**
  * Chart-Monitor Frontend – Vanilla JS
  *
+ * Per-Column Filter Menu (007-column-filter-menu)
  * Polls /api/v1/dashboards for the list, then polls each selected dashboard
  * at its scrape_interval_seconds. All DOM is built with semantic CSS classes
  * defined in styles.css. No utility frameworks required.
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = window.location.protocol === "file:" ? "http://localhost:8000" : "";
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentDashboardId = null;
@@ -22,14 +23,18 @@ let rawData = { columns: [], rows: [] };
 let tableState = {
     sortColumn: null,
     sortDirection: 'asc',
-    filterText: '',
+    // filterText REMOVED (007) — global text filter replaced by per-column menus
     currentPage: 0,
     pageSize: 50
 };
 
-// ── SQL Filter State ──────────────────────────────────────────────────────────
-let _sqlFilterMode = false;
-let _sqlResultData = null; // {columns: [], rows: []} — set when SQL query ran successfully
+// ── Column Filter State (007) ─────────────────────────────────────────────────
+// _sqlFilterMode REMOVED — replaced by filterMode ('column' | 'sql')
+let _sqlResultData = null;   // { columns: string[], rows: RowMap[] } — set on successful SQL run
+let columnFilters = {};       // { [colName]: Set<string> } — per-column selected values
+let filterMode = 'column';    // 'column' | 'sql' — last-applied-wins
+let openMenuColumn = null;    // ephemeral: name of the column whose menu is currently open
+let _urlStateRestored = false; // ensure URL state is restored only on first data load
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const $bannerDisc = document.getElementById("banner-disconnected");
@@ -42,6 +47,7 @@ const $dashboardSearchInput = document.getElementById("dashboardSearchInput");
 const $syncAlert = document.getElementById("sync-alert");
 const $gitopsUnconfigured = document.getElementById("gitops-unconfigured");
 const $appMainWrapper = document.getElementById("app-main-wrapper");
+const $sqlPanel = document.getElementById("sql-panel");
 
 // ── GitOps Setup Page ─────────────────────────────────────────────────────────
 
@@ -67,7 +73,6 @@ async function checkGitOpsStatus() {
             $appMainWrapper.classList.add("hidden");
         }
     } catch (_e) {
-        // If backend is unreachable, assume GitOps is disabled and stay on setup page
         $gitopsUnconfigured.classList.remove("hidden");
         $appMainWrapper.classList.add("hidden");
     }
@@ -108,7 +113,6 @@ function showSyncAlert(success, message, details) {
         <button class="sync-alert-close" onclick="this.parentElement.classList.add('hidden')" aria-label="Dismiss">✕</button>
     `;
     $syncAlert.classList.remove("hidden");
-    // Auto-dismiss on success after 8 seconds
     if (success) {
         setTimeout(() => $syncAlert.classList.add("hidden"), 8000);
     }
@@ -125,7 +129,6 @@ async function submitSync() {
         return;
     }
 
-    // Persist or clear from localStorage
     if (remember.checked) {
         localStorage.setItem(STORAGE_KEY_SECRET, secret);
     } else {
@@ -149,10 +152,8 @@ async function submitSync() {
         if (resp.ok && data.success) {
             closeSyncModal();
             showSyncAlert(true, data.message, data.details);
-            // Reload dashboard list after successful sync
             await loadDashboardList();
         } else {
-            // Show error in the alert and keep modal open
             closeSyncModal();
             const errorMsg = resp.status === 401
                 ? "Invalid SYNC_SECRET. Please check your credentials."
@@ -269,12 +270,22 @@ function selectDashboard(dashboardId, scrapeInterval) {
 
     currentScrapeInterval = scrapeInterval || 30;
 
+    // Reset all filter state on dashboard switch (T017)
     tableState.sortColumn = null;
     tableState.sortDirection = 'asc';
-    tableState.filterText = '';
     tableState.currentPage = 0;
+    columnFilters = {};
+    filterMode = 'column';
+    _sqlResultData = null;
+    closeColumnMenu();
 
-    resetSqlFilter();
+    // Clear SQL panel inputs
+    const sqlInput = document.getElementById('sql-filter-input');
+    if (sqlInput) sqlInput.value = '';
+    const sqlError = document.getElementById('sql-filter-error');
+    if (sqlError) sqlError.textContent = '';
+
+    syncStateToUrl();
     fetchAndRender(dashboardId);
     startPolling();
 }
@@ -307,6 +318,15 @@ function handleMaxChange(val) {
     if (isNaN(num)) num = 10000;
     maxDataValue = num;
     if (currentDashboardId) {
+        renderProcessedTable();
+    }
+}
+
+function handlePageChange(offset) {
+    const totalPages = Math.ceil(getFilteredAndSortedRows().length / tableState.pageSize);
+    const newPage = tableState.currentPage + offset;
+    if (newPage >= 0 && newPage < totalPages) {
+        tableState.currentPage = newPage;
         renderProcessedTable();
     }
 }
@@ -370,10 +390,133 @@ function renderDashboard(data) {
     }
 
     rawData = data;
+
+    // Restore URL state only on the very first data load (page load / refresh)
+    if (!_urlStateRestored) {
+        _urlStateRestored = true;
+        restoreStateFromUrl();
+        return;
+    }
+
     renderProcessedTable();
 }
 
-function handleSort(colName) {
+// ── Distinct Values (T004) ────────────────────────────────────────────────────
+
+/**
+ * Returns sorted distinct display values for a column from the full rawData.
+ * Empty/null cells become the sentinel "(empty)".
+ */
+function distinctValues(colName) {
+    const seen = new Set();
+    for (const row of rawData.rows) {
+        const cell = row[colName];
+        let val;
+        if (!cell || (cell.display === null && cell.display === undefined && cell.value === null && cell.value === undefined)) {
+            val = '(empty)';
+        } else {
+            val = (cell.display !== null && cell.display !== undefined)
+                ? String(cell.display)
+                : String(cell.value !== null && cell.value !== undefined ? cell.value : '');
+            if (val === '' || val === 'null') val = '(empty)';
+        }
+        seen.add(val);
+    }
+    const result = Array.from(seen);
+    result.sort((a, b) => {
+        if (a === '(empty)') return 1;
+        if (b === '(empty)') return -1;
+        return a.toLowerCase().localeCompare(b.toLowerCase());
+    });
+    return result;
+}
+
+// ── Column Menu (T013) ────────────────────────────────────────────────────────
+
+function openColumnMenu(colName, thEl) {
+    // Toggle: clicking the same header while open closes the menu
+    if (openMenuColumn === colName) {
+        closeColumnMenu();
+        return;
+    }
+    closeColumnMenu();
+
+    openMenuColumn = colName;
+
+    const menu = document.getElementById('col-menu');
+    if (!menu) return;
+
+    const sortBtn = document.getElementById('col-menu-sort-btn');
+    const search = document.getElementById('col-menu-search');
+    const valuesList = document.getElementById('col-menu-values');
+
+    // Populate sort button label (T019)
+    if (tableState.sortColumn === colName) {
+        sortBtn.textContent = tableState.sortDirection === 'asc' ? 'Sort ▴' : 'Sort ▾';
+    } else {
+        sortBtn.textContent = 'Sort';
+    }
+    sortBtn.onclick = () => handleColumnSort(colName);
+
+    // Reset search input (T027)
+    search.value = '';
+    search.oninput = () => filterMenuValues(search.value);
+
+    // Populate value list (T021)
+    const values = distinctValues(colName);
+    const selectedValues = columnFilters[colName] || new Set();
+
+    if (values.length === 0) {
+        valuesList.innerHTML = `<li class="col-menu__empty">No values</li>`;
+    } else {
+        valuesList.innerHTML = values.map(val => {
+            const isChecked = selectedValues.has(val);
+            const colJson = esc(JSON.stringify(colName));
+            const valJson = esc(JSON.stringify(val));
+            return `<li class="col-menu__value-item">
+                <label>
+                    <input type="checkbox" ${isChecked ? 'checked' : ''}
+                        onchange="toggleColumnValue(${colJson}, ${valJson}, this.checked)">
+                    ${esc(val)}
+                </label>
+            </li>`;
+        }).join('');
+    }
+
+    // Position the menu below the clicked header
+    const rect = thEl.getBoundingClientRect();
+    menu.style.top = (rect.bottom + 2) + 'px';
+    menu.style.left = rect.left + 'px';
+    menu.classList.remove('hidden');
+
+    // Outside-click listener — attached after current event finishes (T013)
+    const outsideClickHandler = (e) => {
+        // Guard: if this menu was already closed and replaced, do nothing
+        if (openMenuColumn !== colName) return;
+        const m = document.getElementById('col-menu');
+        if (!m || m.contains(e.target)) return;
+        // Let column header clicks handle their own toggle
+        if (e.target.closest && e.target.closest('.col-header')) return;
+        closeColumnMenu();
+    };
+    menu._outsideHandler = outsideClickHandler;
+    setTimeout(() => document.addEventListener('click', outsideClickHandler), 0);
+}
+
+function closeColumnMenu() {
+    const menu = document.getElementById('col-menu');
+    if (!menu) return;
+    menu.classList.add('hidden');
+    if (menu._outsideHandler) {
+        document.removeEventListener('click', menu._outsideHandler);
+        menu._outsideHandler = null;
+    }
+    openMenuColumn = null;
+}
+
+// ── Sort (T018) ───────────────────────────────────────────────────────────────
+
+function handleColumnSort(colName) {
     if (tableState.sortColumn === colName) {
         tableState.sortDirection = tableState.sortDirection === 'asc' ? 'desc' : 'asc';
     } else {
@@ -381,43 +524,208 @@ function handleSort(colName) {
         tableState.sortDirection = 'asc';
     }
     tableState.currentPage = 0;
+
+    // Update sort button label in the still-open menu (T019)
+    const sortBtn = document.getElementById('col-menu-sort-btn');
+    if (sortBtn && openMenuColumn === colName) {
+        sortBtn.textContent = tableState.sortDirection === 'asc' ? 'Sort ▴' : 'Sort ▾';
+    }
+
+    syncStateToUrl();
     renderProcessedTable();
 }
 
-function handleFilter(text) {
-    tableState.filterText = text.toLowerCase();
+// ── Column Value Filter (T022, T026) ──────────────────────────────────────────
+
+function toggleColumnValue(colName, value, checked) {
+    if (checked) {
+        if (!columnFilters[colName]) columnFilters[colName] = new Set();
+        columnFilters[colName].add(value);
+    } else {
+        if (columnFilters[colName]) {
+            columnFilters[colName].delete(value);
+            if (columnFilters[colName].size === 0) delete columnFilters[colName];
+        }
+    }
+    filterMode = 'column';
     tableState.currentPage = 0;
+    syncStateToUrl();
     renderProcessedTable();
 }
 
-function handlePageChange(offset) {
-    const totalPages = Math.ceil(getFilteredAndSortedRows().length / tableState.pageSize);
-    const newPage = tableState.currentPage + offset;
-    if (newPage >= 0 && newPage < totalPages) {
-        tableState.currentPage = newPage;
-        renderProcessedTable();
+function filterMenuValues(searchText) {
+    const valuesList = document.getElementById('col-menu-values');
+    if (!valuesList) return;
+    const lower = searchText.toLowerCase();
+    let anyVisible = false;
+
+    const items = valuesList.querySelectorAll('.col-menu__value-item');
+    items.forEach(li => {
+        const label = li.querySelector('label');
+        const text = label ? label.textContent.trim().toLowerCase() : '';
+        const visible = !lower || text.includes(lower);
+        li.style.display = visible ? '' : 'none';
+        if (visible) anyVisible = true;
+    });
+
+    // "No values match" empty state (T028)
+    const existingEmpty = valuesList.querySelector('.col-menu__empty--search');
+    if (lower && !anyVisible) {
+        if (!existingEmpty) {
+            const el = document.createElement('li');
+            el.className = 'col-menu__empty col-menu__empty--search';
+            el.textContent = 'No values match';
+            valuesList.appendChild(el);
+        }
+    } else if (existingEmpty) {
+        existingEmpty.remove();
     }
 }
 
+// ── URL State Sync (T015, T016) ───────────────────────────────────────────────
+
+function syncStateToUrl() {
+    const params = new URLSearchParams();
+
+    if (tableState.sortColumn) {
+        params.set('sort', `${encodeURIComponent(tableState.sortColumn)}:${tableState.sortDirection}`);
+    }
+
+    for (const [colName, values] of Object.entries(columnFilters)) {
+        if (values && values.size > 0) {
+            const encoded = Array.from(values).map(v => encodeURIComponent(v)).join(',');
+            params.set(`cf_${encodeURIComponent(colName)}`, encoded);
+        }
+    }
+
+    const sqlInput = document.getElementById('sql-filter-input');
+    const sqlText = sqlInput ? sqlInput.value.trim() : '';
+    if (sqlText) {
+        params.set('sql', sqlText);
+    }
+    if (filterMode === 'sql' && _sqlResultData) {
+        params.set('sql_mode', '1');
+    }
+
+    const qs = params.toString();
+    history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
+}
+
+function restoreStateFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+
+    // Sort
+    const sortParam = params.get('sort');
+    if (sortParam) {
+        const colonIdx = sortParam.lastIndexOf(':');
+        if (colonIdx > 0) {
+            tableState.sortColumn = decodeURIComponent(sortParam.substring(0, colonIdx));
+            tableState.sortDirection = sortParam.substring(colonIdx + 1) === 'desc' ? 'desc' : 'asc';
+        }
+    }
+
+    // Column filters
+    columnFilters = {};
+    for (const [key, val] of params.entries()) {
+        if (key.startsWith('cf_')) {
+            const colName = decodeURIComponent(key.substring(3));
+            const values = val.split(',').map(v => decodeURIComponent(v)).filter(v => v);
+            if (values.length > 0) {
+                columnFilters[colName] = new Set(values);
+            }
+        }
+    }
+
+    // SQL text
+    const sqlText = params.get('sql');
+    if (sqlText) {
+        const sqlInput = document.getElementById('sql-filter-input');
+        if (sqlInput) sqlInput.value = sqlText;
+    }
+
+    // Re-execute SQL if sql_mode was active
+    if (params.get('sql_mode') === '1' && sqlText) {
+        executeSqlFilter(sqlText); // calls renderProcessedTable internally
+        return;
+    }
+
+    renderProcessedTable();
+}
+
+// ── Filter Mode Badge (T033) ──────────────────────────────────────────────────
+
+function activeColumnFilterCount() {
+    return Object.keys(columnFilters).filter(k => columnFilters[k] && columnFilters[k].size > 0).length;
+}
+
+function hasAnyActiveFilter() {
+    return activeColumnFilterCount() > 0
+        || !!tableState.sortColumn
+        || (filterMode === 'sql' && !!_sqlResultData);
+}
+
+function renderFilterModeBadge() {
+    if (filterMode === 'sql' && _sqlResultData) {
+        return `<span class="filter-mode-badge filter-mode-badge--sql">SQL filter active</span>`;
+    }
+    const count = activeColumnFilterCount();
+    if (count > 0) {
+        return `<span class="filter-mode-badge filter-mode-badge--col">Column filters active (${count} column${count > 1 ? 's' : ''})</span>`;
+    }
+    return `<span class="filter-mode-badge">No active filter</span>`;
+}
+
+// ── Clear All Filters (T034) ──────────────────────────────────────────────────
+
+function clearAllFilters() {
+    columnFilters = {};
+    tableState.sortColumn = null;
+    tableState.sortDirection = 'asc';
+    tableState.currentPage = 0;
+    _sqlResultData = null;
+    filterMode = 'column';
+
+    const sqlInput = document.getElementById('sql-filter-input');
+    if (sqlInput) sqlInput.value = '';
+    const sqlError = document.getElementById('sql-filter-error');
+    if (sqlError) sqlError.textContent = '';
+
+    syncStateToUrl();
+    renderProcessedTable();
+}
+
+// ── Filter & Sort (T005, T006) ────────────────────────────────────────────────
+
 function getFilteredAndSortedRows() {
+    // SQL mode: return SQL result rows directly (no client sort/filter/pagination)
+    if (filterMode === 'sql' && _sqlResultData) {
+        return _sqlResultData.rows;
+    }
+
     let rows = [...rawData.rows];
 
     if (maxDataValue < 0) maxDataValue = 0;
     rows = rows.slice(0, maxDataValue);
 
-    if (tableState.filterText) {
+    // Column filters: AND across columns, OR within each column (T025)
+    for (const [colName, selectedValues] of Object.entries(columnFilters)) {
+        if (!selectedValues || selectedValues.size === 0) continue;
         rows = rows.filter(row => {
-            return rawData.columns.some(col => {
-                const cell = row[col];
-                if (!cell) return false;
-                const searchVal = (cell.display !== undefined && cell.display !== null)
+            const cell = row[colName];
+            let val;
+            if (!cell || (cell.display === null && cell.display === undefined && cell.value === null && cell.value === undefined)) {
+                val = '(empty)';
+            } else {
+                val = (cell.display !== null && cell.display !== undefined)
                     ? String(cell.display)
-                    : String(cell.value || "");
-                return searchVal.toLowerCase().includes(tableState.filterText);
-            });
+                    : String(cell.value !== null && cell.value !== undefined ? cell.value : '');
+                if (val === '' || val === 'null') val = '(empty)';
+            }
+            return selectedValues.has(val);
         });
     }
 
+    // Sort
     if (tableState.sortColumn) {
         const col = tableState.sortColumn;
         const dir = tableState.sortDirection === 'asc' ? 1 : -1;
@@ -440,118 +748,98 @@ function getFilteredAndSortedRows() {
             return 0;
         });
     }
+
     return rows;
 }
 
 function renderProcessedTable() {
     if (!$content) return;
 
-    // In SQL mode with results: display SQL result rows directly (no sort/filter/pagination)
-    const isSqlActive = _sqlFilterMode && _sqlResultData;
+    const isSqlActive = filterMode === 'sql' && !!_sqlResultData;
     const activeColumns = isSqlActive ? _sqlResultData.columns : rawData.columns;
-    const processedRows = isSqlActive ? _sqlResultData.rows : getFilteredAndSortedRows();
+    const processedRows = getFilteredAndSortedRows();
     const totalCount = processedRows.length;
     const startIndex = isSqlActive ? 0 : tableState.currentPage * tableState.pageSize;
     const paginatedRows = isSqlActive
         ? processedRows
         : processedRows.slice(startIndex, startIndex + tableState.pageSize);
 
+    // Table headers — each th is clickable to open column menu (T014, T020)
     const thead = `<tr>${activeColumns.map(c => {
-        let sortIndicator = "";
+        let sortIndicator = '';
         if (!isSqlActive && tableState.sortColumn === c) {
-            sortIndicator = tableState.sortDirection === 'asc' ? " ▴" : " ▾";
+            sortIndicator = tableState.sortDirection === 'asc' ? ' ▴' : ' ▾';
         }
-        const sortHandler = isSqlActive ? '' : `onclick="handleSort('${esc(c)}')"`;
-        return `<th ${sortHandler} style="cursor: ${isSqlActive ? 'default' : 'pointer'}; user-select: none;">
+        const hasFilter = !isSqlActive && columnFilters[c] && columnFilters[c].size > 0;
+        const filteredClass = hasFilter ? ' col-header--filtered' : '';
+        const clickHandler = isSqlActive ? '' : `onclick="openColumnMenu(${esc(JSON.stringify(c))}, this)"`;
+        return `<th class="col-header${filteredClass}" ${clickHandler}
+                    style="cursor: ${isSqlActive ? 'default' : 'pointer'}; user-select: none;">
                   ${esc(c)}<span class="sort-icon">${sortIndicator}</span>
                 </th>`;
-    }).join("")}</tr>`;
+    }).join('')}</tr>`;
 
-    const allStringValues = new Set();
-    rawData.rows.forEach(r => {
-        rawData.columns.forEach(c => {
-            if (r[c]) {
-                const val = (r[c].display !== undefined && r[c].display !== null)
-                    ? String(r[c].display)
-                    : String(r[c].value || "");
-                if (val) allStringValues.add(val);
-            }
-        });
-    });
-    const datalistOptions = Array.from(allStringValues).map(v => `<option value="${esc(v)}">`).join("");
-
+    // Table body
     let tbody = paginatedRows.map(row => {
         const cells = activeColumns.map(col => {
-            const cell = row[col] || { value: "", style: "" };
-            const rawValue = (cell.value !== undefined && cell.value !== null) ? cell.value : "";
+            const cell = row[col] || { value: '', style: '' };
+            const rawValue = (cell.value !== undefined && cell.value !== null) ? cell.value : '';
             const displayValue = (cell.display !== undefined && cell.display !== null) ? cell.display : rawValue;
-            const styleAttr = cell.style ? ` style="${esc(cell.style)}"` : "";
-            const classAttr = (cell.style === "cell-error") ? ` class="cell-error"` : "";
+            const styleAttr = cell.style ? ` style="${esc(cell.style)}"` : '';
+            const classAttr = (cell.style === 'cell-error') ? ` class="cell-error"` : '';
             return `<td${classAttr}${styleAttr} data-value="${esc(String(rawValue))}">${esc(String(displayValue))}</td>`;
-        }).join("");
+        }).join('');
         return `<tr>${cells}</tr>`;
-    }).join("");
+    }).join('');
 
     if (paginatedRows.length === 0) {
         const emptyMsg = isSqlActive
             ? 'SQL query returned 0 rows.'
-            : `No matching data found for filter: "${esc(tableState.filterText)}" or max items threshold reached.`;
-        tbody = `<tr><td colspan="${activeColumns.length}" style="text-align: center; color: var(--color-text-xs); padding: 30px 10px;">
+            : `No matching rows${activeColumnFilterCount() > 0 ? ' — column filters active' : ''}.`;
+        tbody = `<tr><td colspan="${activeColumns.length}"
+                        style="text-align: center; color: var(--color-text-xs); padding: 30px 10px;">
                     ${emptyMsg}
                  </td></tr>`;
     }
 
-    const sqlToggleVisible = window._sqlEngine != null;
-    const sqlToggleBtn = sqlToggleVisible
-        ? `<button id="sql-filter-toggle" class="sql-filter-toggle${_sqlFilterMode ? ' sql-filter-toggle--active' : ''}"
-               onclick="toggleSqlFilterMode()" title="${_sqlFilterMode ? 'Switch to Simple filter' : 'Switch to SQL filter'}">
-             ${_sqlFilterMode ? 'SQL ✓' : 'SQL'}
-           </button>`
-        : '';
+    const showStart = totalCount === 0 ? 0 : startIndex + 1;
+    const showEnd = Math.min(startIndex + tableState.pageSize, totalCount);
 
-    const simpleFilterHtml = `
-      <input type="text" list="table-filters" class="ui-input" id="tableFilterInput"
-             placeholder="Filter table..." value="${esc(tableState.filterText)}"
-             onkeyup="handleFilter(this.value)" onchange="handleFilter(this.value)"
-             style="flex: 1; min-width: 250px; ${_sqlFilterMode ? 'display:none;' : ''}">
-      <datalist id="table-filters">${datalistOptions}</datalist>`;
-
-    const sqlInputHtml = _sqlFilterMode ? `
-      <div class="sql-filter-input-bar" style="flex: 1; display: flex; gap: 6px; min-width: 0; align-items: flex-start;">
-        <textarea id="sql-filter-input" class="sql-filter-input"
-            rows="1" placeholder="SELECT * FROM data WHERE ..."
-            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();executeSqlFilter(this.value);}"
-            style="flex: 1; min-width: 0;"
-        ></textarea>
-        <button class="nav-btn" id="sql-filter-run" style="white-space: nowrap; flex-shrink: 0; width: auto; padding: 4px 12px; border: 1px solid var(--color-border);"
-            onclick="executeSqlFilter(document.getElementById('sql-filter-input').value)">▶ Run</button>
-      </div>
-      <div id="sql-filter-error" class="sql-filter-error"></div>` : '';
+    // Controls bar: badge + clear-all + max-rows + interval + refresh (T010)
+    const clearVisible = hasAnyActiveFilter();
 
     $content.innerHTML = `
     <div class="dashboard-controls" style="display: flex; gap: 10px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;">
-      ${sqlToggleBtn}
-      ${simpleFilterHtml}
-      ${sqlInputHtml}
-      <div style="display: flex; gap: 10px; align-items: center; border-left: 1px solid var(--color-border); padding-left: 10px;">
-          <input type="number" class="ui-input" id="maxItemsInput" value="${maxDataValue}" 
-                 onchange="handleMaxChange(this.value)" placeholder="Max rows" style="width: 100px;" title="Rows cap (set < 0 for empty)">
-          <select class="ui-input" id="intervalSelect" onchange="handleIntervalChange(this.value)" style="width: 120px;" title="Refresh Rate">
-              <option value="5" ${currentScrapeInterval === 5 ? 'selected' : ''}>5s</option>
+      ${renderFilterModeBadge()}
+      <button id="clear-all-filters" class="nav-btn"
+              style="border: 1px solid var(--color-border); background: var(--color-surface);
+                     padding: 4px 10px; width: auto; font-size: var(--font-size-xs);
+                     ${clearVisible ? '' : 'display:none;'}"
+              onclick="clearAllFilters()">✕ Clear filters</button>
+      <div style="display: flex; gap: 10px; align-items: center; margin-left: auto;
+                  border-left: 1px solid var(--color-border); padding-left: 10px;">
+          <input type="number" class="ui-input" id="maxItemsInput" value="${maxDataValue}"
+                 onchange="handleMaxChange(this.value)" placeholder="Max rows"
+                 style="width: 100px;" title="Rows cap (set &lt; 0 for empty)">
+          <select class="ui-input" id="intervalSelect" onchange="handleIntervalChange(this.value)"
+                  style="width: 120px;" title="Refresh Rate">
+              <option value="5"  ${currentScrapeInterval === 5  ? 'selected' : ''}>5s</option>
               <option value="15" ${currentScrapeInterval === 15 ? 'selected' : ''}>15s</option>
               <option value="30" ${currentScrapeInterval === 30 ? 'selected' : ''}>30s</option>
               <option value="60" ${currentScrapeInterval === 60 ? 'selected' : ''}>60s</option>
-              <option value="0" ${currentScrapeInterval === 0 ? 'selected' : ''}>Paused</option>
+              <option value="0"  ${currentScrapeInterval === 0  ? 'selected' : ''}>Paused</option>
           </select>
-          <button class="nav-btn" style="border: 1px solid var(--color-border); background: var(--color-surface); padding: 8px 12px;" onclick="handleRefresh()">Refresh Now</button>
+          <button class="nav-btn"
+                  style="border: 1px solid var(--color-border); background: var(--color-surface); padding: 8px 12px; display:inline-flex; align-items:center; gap:5px;"
+                  onclick="handleRefresh()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>Refresh Now</button>
       </div>
     </div>
-    
+
     <div class="dashboard-card">
       <div class="dashboard-header" style="align-items: center;">
         <span class="dashboard-name">${esc(rawData.dashboard_name || rawData.dashboard_id)}</span>
         <span class="dashboard-meta" style="margin-left: auto;">
-          Showing ${startIndex + 1} - ${Math.min(startIndex + tableState.pageSize, totalCount)} of ${totalCount} row(s)
+          Showing ${showStart}–${showEnd} of ${totalCount} row(s)
           · refresh ${rawData.scrape_interval_seconds}s
         </span>
       </div>
@@ -561,32 +849,35 @@ function renderProcessedTable() {
           <tbody>${tbody}</tbody>
         </table>
       </div>
-      
-      <div class="dashboard-footer" style="padding: 12px 18px; border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; font-size: var(--font-size-xs);">
-        <span>${isSqlActive ? `SQL: ${totalCount} row(s)` : `Page ${tableState.currentPage + 1} of ${Math.ceil(totalCount / tableState.pageSize) || 1}`}</span>
+
+      <div class="dashboard-footer"
+           style="padding: 12px 18px; border-top: 1px solid var(--color-border);
+                  display: flex; justify-content: space-between; align-items: center;
+                  font-size: var(--font-size-xs);">
+        <span>${isSqlActive
+            ? `SQL: ${totalCount} row(s)`
+            : `Page ${tableState.currentPage + 1} of ${Math.ceil(totalCount / tableState.pageSize) || 1}`}</span>
         <div style="display: flex; gap: 8px;">
-           <button class="nav-btn" style="width: auto; padding: 4px 10px; border: 1px solid var(--color-border);"
-                   onclick="handlePageChange(-1)" ${isSqlActive || tableState.currentPage === 0 ? "disabled" : ""}>Previous</button>
-           <button class="nav-btn" style="width: auto; padding: 4px 10px; border: 1px solid var(--color-border);"
-                   onclick="handlePageChange(1)" ${isSqlActive || (tableState.currentPage + 1) * tableState.pageSize >= totalCount ? "disabled" : ""}>Next</button>
+           <button class="nav-btn"
+                   style="width: auto; padding: 4px 10px; border: 1px solid var(--color-border);"
+                   onclick="handlePageChange(-1)"
+                   ${isSqlActive || tableState.currentPage === 0 ? 'disabled' : ''}>Previous</button>
+           <button class="nav-btn"
+                   style="width: auto; padding: 4px 10px; border: 1px solid var(--color-border);"
+                   onclick="handlePageChange(1)"
+                   ${isSqlActive || (tableState.currentPage + 1) * tableState.pageSize >= totalCount ? 'disabled' : ''}>Next</button>
         </div>
       </div>
     </div>`;
 
-    setTimeout(() => {
-        if (_sqlFilterMode) {
-            const sqlIn = document.getElementById("sql-filter-input");
-            if (sqlIn && document.activeElement !== sqlIn) sqlIn.focus();
+    // Show / hide SQL panel (T030)
+    if ($sqlPanel) {
+        if (window._sqlEngine != null) {
+            $sqlPanel.classList.remove('hidden');
         } else {
-            const input = document.getElementById("tableFilterInput");
-            if (input && document.activeElement !== input) {
-                const tempval = input.value;
-                input.focus();
-                input.value = '';
-                input.value = tempval;
-            }
+            $sqlPanel.classList.add('hidden');
         }
-    }, 0);
+    }
 }
 
 // ── Reconnect ─────────────────────────────────────────────────────────────────
@@ -611,26 +902,11 @@ function esc(s) {
         .replace(/"/g, "&quot;");
 }
 
-// ── SQL Filter ────────────────────────────────────────────────────────────────
-
-function toggleSqlFilterMode() {
-    if (window._sqlEngine == null) return; // sql.js unavailable
-    _sqlFilterMode = !_sqlFilterMode;
-    if (!_sqlFilterMode) {
-        _sqlResultData = null; // clear SQL results when switching back
-    }
-    renderProcessedTable();
-}
-
-function resetSqlFilter() {
-    _sqlFilterMode = false;
-    _sqlResultData = null;
-}
+// ── SQL Filter (T029, T030) ───────────────────────────────────────────────────
 
 /**
  * Build an in-memory sql.js Database from the current rawData.
  * Table is named `data`, columns are rawData.columns (all TEXT).
- * Values are extracted from the {value, style, display} cell format.
  */
 function buildSqlDatabase() {
     const db = new window._sqlEngine.Database();
@@ -652,9 +928,9 @@ function buildSqlDatabase() {
 }
 
 /**
- * Execute a SQL query against the current table data and re-render the table.
- * On success, stores results in _sqlResultData and calls renderProcessedTable().
- * On error, shows the error message under the SQL input.
+ * Execute a SQL query against rawData using sql.js.
+ * On success: sets _sqlResultData, sets filterMode='sql', syncs URL, re-renders.
+ * On error: shows error message, does NOT change filterMode or _sqlResultData.
  */
 function executeSqlFilter(sqlQuery) {
     const errorEl = document.getElementById('sql-filter-error');
@@ -678,7 +954,9 @@ function executeSqlFilter(sqlQuery) {
             });
             _sqlResultData = { columns, rows };
         }
+        filterMode = 'sql';
         if (errorEl) errorEl.textContent = '';
+        syncStateToUrl();
         renderProcessedTable();
     } catch (err) {
         if (errorEl) errorEl.textContent = String(err);
@@ -690,17 +968,40 @@ function executeSqlFilter(sqlQuery) {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
-// Initialize sql.js WASM (async, non-blocking — sets window._sqlEngine or null)
 window._sqlEngine = null;
 if (typeof initSqlJs === 'function') {
     initSqlJs({ locateFile: f => `./assets/${f}` })
-        .then(SQL => { window._sqlEngine = SQL; })
+        .then(SQL => {
+            window._sqlEngine = SQL;
+            // Wire Run SQL button now that the engine is ready
+            const runBtn = document.getElementById('sql-run-btn');
+            if (runBtn) {
+                runBtn.onclick = () => {
+                    const input = document.getElementById('sql-filter-input');
+                    if (input) executeSqlFilter(input.value);
+                };
+            }
+            // Show SQL panel if a dashboard is already displayed
+            if ($sqlPanel && currentDashboardId) {
+                $sqlPanel.classList.remove('hidden');
+            }
+        })
         .catch(() => { window._sqlEngine = null; });
+}
+
+// Wire SQL textarea Enter key (Shift+Enter = newline)
+const $sqlInput = document.getElementById('sql-filter-input');
+if ($sqlInput) {
+    $sqlInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            executeSqlFilter($sqlInput.value);
+        }
+    });
 }
 
 initTheme();
 checkGitOpsStatus().then(() => {
-    // Only start the main app if GitOps is enabled
     if (!$appMainWrapper.classList.contains("hidden")) {
         loadDashboardList();
     }

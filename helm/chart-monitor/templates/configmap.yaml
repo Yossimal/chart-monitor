@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "chart-monitor.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chart-monitor.labels" . | nindent 4 }}
+data:
+  CHART_MONITOR_POLL_INTERVAL: {{ .Values.app.pollInterval | quote }}
+  CHART_MONITOR_MAX_DATA: {{ .Values.app.maxData | quote }}
+  CHART_MONITOR_STORE_DIR: {{ .Values.app.storeDir | quote }}
+  GIT_SSH_URL: {{ required "gitops.sshUrl is required" .Values.gitops.sshUrl | quote }}
+  GIT_TARGET_PATH: {{ .Values.app.storeDir | quote }}
+  GIT_SSH_KEY_PATH: {{ printf "%s/ssh-key" .Values.gitops.sshKeyMountPath | quote }}

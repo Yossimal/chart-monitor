@@ -39,3 +39,6 @@ Thumbs.db
 
 # ssh
 ssh/
+
+# MkDocs build output
+docs/site/

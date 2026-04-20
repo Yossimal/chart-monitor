@@ -1,0 +1,13 @@
+apiVersion: v2
+name: chart-monitor
+description: Deploy chart-monitor backend and frontend to Kubernetes and OpenShift
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - chart-monitor
+  - monitoring
+  - kubernetes
+  - openshift
+maintainers:
+  - name: chart-monitor maintainers

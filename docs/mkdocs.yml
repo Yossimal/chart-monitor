@@ -1,0 +1,75 @@
+site_name: Chart-Monitor Docs
+site_description: Dynamic data extraction and visualization engine for monitoring dashboards.
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  logo: assets/brand/logo-header.png
+  favicon: assets/brand/favicon.ico
+  palette:
+    - scheme: slate
+      primary: cyan
+      accent: green
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: cyan
+      accent: green
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.sections
+    - navigation.tabs
+    - navigation.top
+    - toc.integrate
+    - content.code.copy
+    - search.highlight
+    - search.suggest
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.details
+  - toc:
+      permalink: true
+
+extra_css:
+  - assets/extra.css
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Connect a Git Repository: getting-started/connect-git.md
+  - Concepts:
+    - Collectors: concepts/collectors.md
+    - Dashboards: concepts/dashboards.md
+    - Secrets: concepts/secrets.md
+  - How-To Guides:
+    - Create a Collector: how-to/create-collector.md
+    - Create a SQL Collector: how-to/create-sql-collector.md
+    - Load Secrets: how-to/load-secrets.md
+    - Create a Dashboard: how-to/create-dashboard.md
+  - Using the UI:
+    - Overview: ui/index.md
+    - Sidebar & Navigation: ui/sidebar-and-navigation.md
+    - Column Filter & Sort: ui/column-filter-and-sort.md
+    - SQL Filter: ui/sql-filter.md
+    - Data Amount & Paging: ui/data-amount-and-paging.md
+    - Sync & Refresh: ui/sync-and-refresh.md
+    - Theme & Settings: ui/theme-and-settings.md
+  - How It Works:
+    - Architecture Overview: internals/index.md
+    - GitOps Sync: internals/gitops-sync.md
+    - Collector Execution: internals/collector-execution.md
+    - SQL Layer: internals/sql-layer.md
+    - Dashboard Rendering: internals/dashboard-rendering.md
+    - End-to-End Data Flow: internals/data-flow-end-to-end.md

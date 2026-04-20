@@ -1,0 +1,113 @@
+nameOverride: ""
+fullnameOverride: ""
+imagePullSecrets: []
+
+# ---------------------------------------------------------------------------
+# Single workload — backend serves the frontend static files
+# ---------------------------------------------------------------------------
+image:
+  repository: "chart-monitor"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+env: []
+extraEnvFrom: []
+
+service:
+  type: ClusterIP
+  port: 8000
+
+probes:
+  liveness:
+    httpGet:
+      path: /api/v1/dashboards
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readiness:
+    httpGet:
+      path: /api/v1/dashboards
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+# ---------------------------------------------------------------------------
+# Networking — Ingress (on-prem Kubernetes)
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  host: "chart-monitor.local"
+  tls: []
+
+# ---------------------------------------------------------------------------
+# Networking — OpenShift Route
+# ---------------------------------------------------------------------------
+openshift:
+  enabled: false
+  route:
+    host: ""
+    tls:
+      termination: edge
+      insecureEdgeTerminationPolicy: Redirect
+
+# ---------------------------------------------------------------------------
+# Application configuration (non-sensitive → ConfigMap)
+# ---------------------------------------------------------------------------
+app:
+  pollInterval: "30"       # CHART_MONITOR_POLL_INTERVAL
+  maxData: "500"           # CHART_MONITOR_MAX_DATA
+  storeDir: "/data/store"  # CHART_MONITOR_STORE_DIR / GIT_TARGET_PATH
+
+# ---------------------------------------------------------------------------
+# GitOps configuration
+# ---------------------------------------------------------------------------
+gitops:
+  # SSH URL of the remote repository (e.g. git@github.com:your-org/scripts.git)
+  sshUrl: ""
+  # Mount path inside the container where the ssh-key file will be available
+  sshKeyMountPath: "/app/secrets"
+
+# ---------------------------------------------------------------------------
+# Secrets — reference an existing Kubernetes Secret by name.
+# The Secret must contain: SYNC_SECRET, ssh-key (private key), and any
+# user-defined API tokens (e.g. GITHUB_TOKEN).
+# Defaults to the chart fullname if left empty.
+# ---------------------------------------------------------------------------
+existingSecret: ""
+
+# ---------------------------------------------------------------------------
+# Persistence — PVC is ALWAYS created
+# ---------------------------------------------------------------------------
+persistence:
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /data
+
+# ---------------------------------------------------------------------------
+# ServiceAccount & RBAC
+# ---------------------------------------------------------------------------
+serviceAccount:
+  name: ""
+  annotations: {}
+
+# ---------------------------------------------------------------------------
+# Scheduling
+# ---------------------------------------------------------------------------
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+podLabels: {}

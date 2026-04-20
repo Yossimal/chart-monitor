@@ -54,9 +54,19 @@ class FileStore(Store):
         self._dashboards: dict[str, Any] = {}   # dashboard_id -> Dashboard class
         self._collectors: dict[str, Any] = {}   # class name  -> Collector class
         
-        # Inject the parent dir into sys.path so dashboard scripts
-        # can import each other via `from store.collector import X`
+        # Inject a virtual 'store' package into sys.modules so dashboard scripts
+        # can always import each other via `from store.X import Y`, regardless
+        # of the actual folder name or location.
         import sys
+        import types
+        
+        if "store" not in sys.modules:
+            store_mod = types.ModuleType("store")
+            # In Python, setting __path__ to a list of str makes it a package loader
+            store_mod.__path__ = [str(self._store_dir)]
+            sys.modules["store"] = store_mod
+            
+        # Also inject the parent dir into sys.path as a fallback
         parent_dir = str(self._store_dir.parent)
         if parent_dir not in sys.path:
             sys.path.insert(0, parent_dir)
