@@ -1,0 +1,8 @@
+/* Chart-Monitor docs custom styles */
+
+/* Increase logo size in the Material header */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 36px;
+  width: auto;
+}

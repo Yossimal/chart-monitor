@@ -13,6 +13,14 @@ Auto-generated from all feature plans. Last updated: 2026-03-09
 - N/A (State kept in browser/URL) (001-ui-enhancements)
 - Python 3.11+ (Backend), TypeScript/Vanilla (Frontend) + FastAPI, RestrictedPython, Pytest (Backend) (002-gitops-sync)
 - Git repository (remote), Local Filesystem (target path) (002-gitops-sync)
+- Vanilla JS (ES6+) + sql.js (already bundled as `frontend/src/assets/sql-wasm.*`) — no new dependencies (007-column-filter-menu)
+- `URLSearchParams` + `history.replaceState()` (browser-native, no external storage) (007-column-filter-menu)
+- Python 3.11+ (backend/build), Vanilla HTML/CSS/JS (main frontend) + MkDocs ≥1.5, mkdocs-material ≥9.5, FastAPI (existing), Pygments (transitive via mkdocs-material) (008-in-app-docs)
+- File-system only — docs source in `docs/docs/*.md`, build output in `docs/site/` (gitignored) (008-in-app-docs)
+- Vanilla HTML5 / CSS3 / ES2020 JS (frontend); MkDocs (Python-rendered static docs) + MkDocs + `mkdocs-material` (already in use — see `docs/mkdocs.yml`); Lucide (inline SVG icon set) for Git and refresh glyphs delivered as static SVG markup (no JS runtime dep) (009-rebrand-ui-theme)
+- N/A — brand assets live in `frontend/src/assets/brand/` and `docs/docs/assets/brand/`; source-of-truth PNG stays at repo root (009-rebrand-ui-theme)
+- YAML / Helm Go templates, Helm 3.x + Helm 3, Kubernetes API 1.24+, `route.openshift.io/v1` (OpenShift 4.10+) (010-helm-chart-deploy)
+- PersistentVolumeClaim — StorageClass driven by `persistence.storageClass` value (empty = cluster default) (010-helm-chart-deploy)
 
 - Python 3.11+ (Backend), TypeScript/Vanilla Web (Frontend) + FastAPI, RestrictedPython, PyYAML, Tailwind CSS (via CDN or simple build) (001-core-engine)
 
@@ -33,9 +41,9 @@ cd src; pytest; ruff check .
 Python 3.11+ (Backend), TypeScript/Vanilla Web (Frontend): Follow standard conventions
 
 ## Recent Changes
-- 002-gitops-sync: Added Python 3.11+ (Backend), TypeScript/Vanilla (Frontend) + FastAPI, RestrictedPython, Pytest (Backend)
-- 001-ui-enhancements: Added Python 3.11+ (Backend), TypeScript / Vanilla JS (Frontend) + FastAPI (Backend), DOM API / Vanilla JS (Frontend) [NEEDS CLARIFICATION: Best lightweight, framework-free library for virtualizing 10k rows if raw DOM is insufficient?]
-- 001-core-engine: Added Python 3.11+ (Backend), Vanilla HTML/JS/CSS (Frontend) + FastAPI, RestrictedPython, Pytest
+- 010-helm-chart-deploy: Added YAML / Helm Go templates, Helm 3.x + Helm 3, Kubernetes API 1.24+, `route.openshift.io/v1` (OpenShift 4.10+)
+- 009-rebrand-ui-theme: Added Vanilla HTML5 / CSS3 / ES2020 JS (frontend); MkDocs (Python-rendered static docs) + MkDocs + `mkdocs-material` (already in use — see `docs/mkdocs.yml`); Lucide (inline SVG icon set) for Git and refresh glyphs delivered as static SVG markup (no JS runtime dep)
+- 008-in-app-docs: Added Python 3.11+ (backend/build), Vanilla HTML/CSS/JS (main frontend) + MkDocs ≥1.5, mkdocs-material ≥9.5, FastAPI (existing), Pygments (transitive via mkdocs-material)
 
 
 <!-- MANUAL ADDITIONS START -->

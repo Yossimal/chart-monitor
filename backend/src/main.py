@@ -8,6 +8,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import router
@@ -20,9 +21,12 @@ logging.basicConfig(
     format="%(asctime)s  %(levelname)-8s  %(name)s – %(message)s",
 )
 
-# Resolve absolute path to the frontend directory regardless of CWD.
+# Resolve absolute paths relative to this file.
 # Layout: backend/src/main.py  →  ../../frontend/src
-_FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "src"
+#                               →  ../../docs/site  (MkDocs build output)
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_FRONTEND_DIR = _REPO_ROOT / "frontend" / "src"
+_DOCS_DIR = _REPO_ROOT / "docs" / "site"
 
 
 @asynccontextmanager
@@ -40,6 +44,10 @@ app = FastAPI(
     description="Dynamic data extraction, transformation, and dashboard visualization engine.",
     version="0.1.0",
     lifespan=lifespan,
+    # Swagger/OpenAPI moved to /api/docs so /docs is free for MkDocs
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
 app.add_middleware(
@@ -51,6 +59,21 @@ app.add_middleware(
 
 # API endpoints (must be included BEFORE the static mount so /api/* routes win)
 app.include_router(router, prefix="/api/v1")
+
+# /docs → /docs/ redirect: Starlette's StaticFiles directory-index redirect
+# produces "/" instead of "/docs/" when mounted at "/docs", so we handle it explicitly.
+@app.get("/docs", include_in_schema=False)
+async def docs_root_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/docs/")
+
+# Serve MkDocs built docs at /docs/ (must be mounted BEFORE the / catch-all)
+if _DOCS_DIR.exists():
+    logger.info("Serving docs from %s", _DOCS_DIR)
+    app.mount("/docs", StaticFiles(directory=str(_DOCS_DIR), html=True), name="docs")
+else:
+    logger.warning(
+        "Docs directory not found at %s – run: cd docs && python -m mkdocs build", _DOCS_DIR
+    )
 
 # Serve the Vanilla frontend at root.  html=True makes '/' serve index.html.
 if _FRONTEND_DIR.exists():

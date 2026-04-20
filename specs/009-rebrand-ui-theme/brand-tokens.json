@@ -1,0 +1,17 @@
+{
+  "brand_primary_light": "#1a8cb2",
+  "brand_primary_dark": "#16a5d5",
+  "brand_primary_fg_light": "#ffffff",
+  "brand_primary_fg_dark": "#ffffff",
+  "brand_accent_light": "#059669",
+  "brand_accent_dark": "#10b981",
+  "mkdocs_primary": "cyan",
+  "mkdocs_accent": "green",
+  "note": "Accent overridden to green (emerald) matching the logo's circuit-line hue; script default (split-complement red) discarded.",
+  "wcag_checks": {
+    "dark/text-on-surface": { "ratio": 15.68, "level": "AAA" },
+    "dark/primary-fg-on-primary": { "ratio": 7.38, "level": "AAA" },
+    "light/text-on-surface": { "ratio": 17.06, "level": "AAA" },
+    "light/primary-fg-on-primary": { "ratio": 5.44, "level": "AA" }
+  }
+}

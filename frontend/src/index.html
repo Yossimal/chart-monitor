@@ -6,6 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chart-Monitor</title>
   <meta name="description" content="Dynamic data extraction and visualization engine for monitoring dashboards." />
+  <link rel="icon" type="image/x-icon" href="./assets/brand/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./assets/brand/logo-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="./assets/brand/logo-512.png" />
+  <link rel="apple-touch-icon" href="./assets/brand/logo-192.png" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 
@@ -23,12 +27,13 @@
   <div id="gitops-unconfigured" class="gitops-setup hidden">
     <div class="gitops-setup-card">
       <div class="gitops-setup-header">
-        <div class="logo" style="width:48px;height:48px;font-size:20px;">CM</div>
+        <img src="./assets/brand/logo-header.png" alt="Chart-Monitor" class="brand-logo" style="height:48px;" />
         <h1>Connect Your Git Repository</h1>
         <p class="gitops-setup-subtitle">
           Chart-Monitor requires a Git repository to load monitoring scripts.
           Follow the guide below to configure your SSH key and set the required environment variables.
         </p>
+        <a href="/docs" class="nav-btn" style="display:inline-block;margin-top:12px;padding:6px 14px;text-decoration:none;">Docs</a>
       </div>
 
       <!-- Tabs -->
@@ -110,12 +115,13 @@ SYNC_SECRET=your-strong-secret</pre>
   <div id="app-main-wrapper">
     <!-- Header -->
     <header class="app-header">
-      <div class="logo" aria-hidden="true">CM</div>
+      <img src="./assets/brand/logo-header.png" alt="Chart-Monitor" class="brand-logo" />
       <span class="app-title">Chart-Monitor</span>
       <div class="header-right">
-        <button id="theme-toggle-btn" class="nav-btn" style="width: auto; padding: 4px 8px; margin-right: 8px;"
+        <a href="/docs" class="nav-btn header-nav-btn" style="text-decoration:none;">Docs</a>
+        <button id="theme-toggle-btn" class="nav-btn header-nav-btn"
           onclick="toggleTheme()" title="Toggle Theme">🌙 Dark</button>
-        <span class="last-updated" id="last-updated"></span>
+        <span class="last-updated header-last-updated" id="last-updated"></span>
         <div class="status-dot" id="status-dot"></div>
       </div>
     </header>
@@ -126,6 +132,21 @@ SYNC_SECRET=your-strong-secret</pre>
     <!-- Body: sidebar + main -->
     <div class="app-body">
       <aside class="sidebar">
+        <!-- Sync Button at the top of the sidebar -->
+        <div class="sidebar-sync">
+          <button id="sync-btn" class="sync-btn" onclick="openSyncModal()" title="Sync from Git Repository">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true">
+              <line x1="6" y1="3" x2="6" y2="15"></line>
+              <circle cx="18" cy="6" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <path d="M18 9a9 9 0 0 1-9 9"></path>
+            </svg>
+            Sync Scripts
+          </button>
+        </div>
+
         <div class="sidebar-label" style="display: flex; justify-content: space-between; align-items: center;">
           <span>Dashboards</span>
         </div>
@@ -137,17 +158,24 @@ SYNC_SECRET=your-strong-secret</pre>
         <nav class="sidebar-nav" id="dashboard-list">
           <span style="font-size:.75rem; color: var(--color-text-xs); padding:4px 10px;">Loading…</span>
         </nav>
-
-        <!-- Sync Button at the bottom of the sidebar -->
-        <div class="sidebar-sync">
-          <button id="sync-btn" class="sync-btn" onclick="openSyncModal()" title="Sync from Git Repository">
-            ↕ Sync Scripts
-          </button>
-        </div>
       </aside>
 
-      <main class="app-main" id="dashboard-content">
-        <div class="empty-state">Select a dashboard from the sidebar</div>
+      <main class="app-main">
+        <div id="dashboard-content">
+          <div class="empty-state">Select a dashboard from the sidebar</div>
+        </div>
+        <!-- SQL panel — relocated to the bottom (007-column-filter-menu) -->
+        <div class="sql-panel hidden" id="sql-panel">
+          <div class="sql-panel__header">SQL Query</div>
+          <div class="sql-panel__body">
+            <textarea id="sql-filter-input" class="sql-filter-input"
+                rows="3" placeholder="SELECT * FROM data WHERE ..."></textarea>
+            <div class="sql-panel__actions">
+              <button id="sql-run-btn" class="nav-btn sql-panel__run-btn">▶ Run SQL</button>
+              <div id="sql-filter-error" class="sql-filter-error"></div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   </div>
@@ -174,6 +202,13 @@ SYNC_SECRET=your-strong-secret</pre>
         <button class="modal-btn modal-btn--primary" id="sync-submit-btn" onclick="submitSync()">Sync</button>
       </div>
     </div>
+  </div>
+
+  <!-- Column menu — single reused floating dropdown (007-column-filter-menu) -->
+  <div id="col-menu" class="col-menu hidden" role="menu">
+    <button class="col-menu__sort-btn" id="col-menu-sort-btn">Sort</button>
+    <input type="text" class="col-menu__search" id="col-menu-search" placeholder="Search values…" autocomplete="off">
+    <ul class="col-menu__values" id="col-menu-values"></ul>
   </div>
 
   <!-- sql.js WASM — loaded from local assets (no CDN). Sets window._sqlEngine. -->

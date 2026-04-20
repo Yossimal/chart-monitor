@@ -1,0 +1,35 @@
+chart-monitor has been deployed successfully.
+
+{{- if .Values.openshift.enabled }}
+
+  Access the UI via the OpenShift Route:
+  {{- if .Values.openshift.route.host }}
+    https://{{ .Values.openshift.route.host }}
+  {{- else }}
+    Run the following to get the auto-assigned Route hostname:
+      oc get route {{ include "chart-monitor.fullname" . }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.host}'
+  {{- end }}
+
+  Note: The Route uses Edge TLS termination — HTTP is automatically redirected to HTTPS.
+
+{{- else }}
+
+  Access the UI via the Ingress:
+    http://{{ .Values.ingress.host }}
+  {{- if .Values.ingress.tls }}
+    https://{{ .Values.ingress.host }}
+  {{- end }}
+
+  Ensure your Ingress controller is running and DNS resolves {{ .Values.ingress.host }} to the cluster.
+
+{{- end }}
+
+To check the status of your deployment:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+GitOps is ENABLED. SSH key is mounted from the chart Secret at:
+  {{ .Values.gitops.sshKeyMountPath }}/ssh-key  (GIT_SSH_KEY_PATH)
+
+NOTE: The backend PersistentVolumeClaim is NOT deleted on `helm uninstall`.
+To remove it manually:
+  kubectl delete pvc -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }}

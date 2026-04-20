@@ -1,0 +1,24 @@
+# OpenShift override values for chart-monitor
+# Usage: helm install chart-monitor helm/chart-monitor -f helm/chart-monitor/values-openshift.yaml
+
+openshift:
+  enabled: true
+  route:
+    # Leave empty — OpenShift auto-assigns the hostname from the cluster wildcard domain.
+    host: ""
+    tls:
+      termination: edge
+      insecureEdgeTerminationPolicy: Redirect
+
+ingress:
+  # Redundant when openshift.enabled=true (ingress.yaml is gated by `not openshift.enabled`),
+  # but explicit here for clarity.
+  enabled: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  # Set to null so OpenShift assigns the UID from the namespace's allowed UID range.
+  # (Required when the namespace does not permit UID 1000.)
+  runAsUser: null
+  # Set to null so OpenShift assigns the GID from the namespace's allowed GID range.
+  fsGroup: null

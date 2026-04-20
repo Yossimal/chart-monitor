@@ -1,0 +1,21 @@
+image:
+  repository: chart-monitor
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8000
+
+ingress:
+  enabled: true
+  host: "localhost"
+
+gitops:
+  sshUrl: "git@github.com:Yossimal/chart-monitor-dashboards.git"
+
+persistence:
+  storageClass: "hostpath"
+  size: 1Gi
+
+# Reference the Secret already present in the namespace
+existingSecret: "chart-monitor"
