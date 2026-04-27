@@ -9,6 +9,10 @@ data:
   CHART_MONITOR_POLL_INTERVAL: {{ .Values.app.pollInterval | quote }}
   CHART_MONITOR_MAX_DATA: {{ .Values.app.maxData | quote }}
   CHART_MONITOR_STORE_DIR: {{ .Values.app.storeDir | quote }}
-  GIT_SSH_URL: {{ required "gitops.sshUrl is required" .Values.gitops.sshUrl | quote }}
   GIT_TARGET_PATH: {{ .Values.app.storeDir | quote }}
-  GIT_SSH_KEY_PATH: {{ printf "%s/ssh-key" .Values.gitops.sshKeyMountPath | quote }}
+  GIT_CONNECTION_METHOD: {{ .Values.gitops.connection | default "ssh" | quote }}
+  GIT_SSH_URL: {{ .Values.gitops.ssh.url | default "" | quote }}
+  GIT_SSH_KEY_PATH: {{ printf "%s/ssh-key" (.Values.gitops.ssh.keyMountPath | default "/app/secrets") | quote }}
+  GIT_REPO_URL: {{ coalesce .Values.gitops.httpToken.url .Values.gitops.httpUserToken.url "" | quote }}
+  GIT_HTTP_USERNAME: {{ .Values.gitops.httpUserToken.username | default "" | quote }}
+  GIT_SKIP_VERIFY: {{ .Values.gitops.skipVerify | default "false" | quote }}

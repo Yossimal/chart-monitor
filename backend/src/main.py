@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="Chart-Monitor",
     description="Dynamic data extraction, transformation, and dashboard visualization engine.",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
     # Swagger/OpenAPI moved to /api/docs so /docs is free for MkDocs
     docs_url="/api/docs",

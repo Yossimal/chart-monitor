@@ -11,7 +11,9 @@ ingress:
   host: "localhost"
 
 gitops:
-  sshUrl: "git@github.com:Yossimal/chart-monitor-dashboards.git"
+  connection: ssh
+  ssh:
+    url: "git@github.com:Yossimal/chart-monitor-dashboards.git"
 
 persistence:
   storageClass: "hostpath"
