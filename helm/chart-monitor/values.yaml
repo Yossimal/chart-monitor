@@ -74,15 +74,42 @@ app:
 # GitOps configuration
 # ---------------------------------------------------------------------------
 gitops:
-  # SSH URL of the remote repository (e.g. git@github.com:your-org/scripts.git)
-  sshUrl: ""
-  # Mount path inside the container where the ssh-key file will be available
-  sshKeyMountPath: "/app/secrets"
+  # Connection method: ssh | http-token | http-user-token
+  connection: ssh
+
+  # ── SSH connection ──────────────────────────────────────────────────────────
+  ssh:
+    # SSH clone URL (e.g. git@github.com:your-org/scripts.git)
+    url: ""
+    # Mount path inside the container where the ssh-key Secret file is available
+    keyMountPath: "/app/secrets"
+
+  # ── HTTP token connection ───────────────────────────────────────────────────
+  # Token is supplied via the Kubernetes Secret key: GIT_HTTP_TOKEN
+  httpToken:
+    # HTTPS clone URL (e.g. https://github.com/your-org/repo.git)
+    url: ""
+
+  # ── HTTP username + token connection ───────────────────────────────────────
+  # Token is supplied via the Kubernetes Secret key: GIT_HTTP_TOKEN
+  httpUserToken:
+    # HTTPS clone URL (e.g. https://gitlab.company.internal/org/repo.git)
+    url: ""
+    # Username (non-sensitive — set here in values, not in Secret)
+    username: ""
+
+  # Set to true to bypass certificate/host-key verification.
+  # SSH method: disables SSH StrictHostKeyChecking.
+  # HTTP methods: disables TLS certificate verification.
+  # Only use on trusted internal networks.
+  skipVerify: false
 
 # ---------------------------------------------------------------------------
 # Secrets — reference an existing Kubernetes Secret by name.
-# The Secret must contain: SYNC_SECRET, ssh-key (private key), and any
-# user-defined API tokens (e.g. GITHUB_TOKEN).
+# SSH method:             SYNC_SECRET, ssh-key (PEM private key)
+# http-token method:      SYNC_SECRET, GIT_HTTP_TOKEN
+# http-user-token method: SYNC_SECRET, GIT_HTTP_TOKEN
+# Optional:               any API tokens your collectors need (e.g. GITHUB_TOKEN)
 # Defaults to the chart fullname if left empty.
 # ---------------------------------------------------------------------------
 existingSecret: ""

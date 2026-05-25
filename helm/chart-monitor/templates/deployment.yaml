@@ -56,17 +56,21 @@ spec:
           volumeMounts:
             - name: data
               mountPath: {{ .Values.persistence.mountPath }}
+            {{- if eq .Values.gitops.connection "ssh" }}
             - name: ssh-key
-              mountPath: {{ .Values.gitops.sshKeyMountPath }}
+              mountPath: {{ .Values.gitops.ssh.keyMountPath | default "/app/secrets" }}
               readOnly: true
+            {{- end }}
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "chart-monitor.fullname" . }}-data
+        {{- if eq .Values.gitops.connection "ssh" }}
         - name: ssh-key
           secret:
             secretName: {{ include "chart-monitor.secretName" . }}
             defaultMode: 0400
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

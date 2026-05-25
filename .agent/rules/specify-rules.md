@@ -21,6 +21,9 @@ Auto-generated from all feature plans. Last updated: 2026-03-09
 - N/A — brand assets live in `frontend/src/assets/brand/` and `docs/docs/assets/brand/`; source-of-truth PNG stays at repo root (009-rebrand-ui-theme)
 - YAML / Helm Go templates, Helm 3.x + Helm 3, Kubernetes API 1.24+, `route.openshift.io/v1` (OpenShift 4.10+) (010-helm-chart-deploy)
 - PersistentVolumeClaim — StorageClass driven by `persistence.storageClass` value (empty = cluster default) (010-helm-chart-deploy)
+- Python 3.11+ (backend), YAML (Helm chart) + FastAPI, subprocess (stdlib), Helm 3 (011-git-skip-verify)
+- N/A (no storage changes) (011-git-skip-verify)
+- Python 3.11+ (backend), YAML (Helm chart) + FastAPI, subprocess + tempfile + urllib.parse + shutil (stdlib), Helm 3 (012-git-http-auth)
 
 - Python 3.11+ (Backend), TypeScript/Vanilla Web (Frontend) + FastAPI, RestrictedPython, PyYAML, Tailwind CSS (via CDN or simple build) (001-core-engine)
 
@@ -41,9 +44,9 @@ cd src; pytest; ruff check .
 Python 3.11+ (Backend), TypeScript/Vanilla Web (Frontend): Follow standard conventions
 
 ## Recent Changes
+- 012-git-http-auth: Added Python 3.11+ (backend), YAML (Helm chart) + FastAPI, subprocess + tempfile + urllib.parse + shutil (stdlib), Helm 3
+- 011-git-skip-verify: Added Python 3.11+ (backend), YAML (Helm chart) + FastAPI, subprocess (stdlib), Helm 3
 - 010-helm-chart-deploy: Added YAML / Helm Go templates, Helm 3.x + Helm 3, Kubernetes API 1.24+, `route.openshift.io/v1` (OpenShift 4.10+)
-- 009-rebrand-ui-theme: Added Vanilla HTML5 / CSS3 / ES2020 JS (frontend); MkDocs (Python-rendered static docs) + MkDocs + `mkdocs-material` (already in use — see `docs/mkdocs.yml`); Lucide (inline SVG icon set) for Git and refresh glyphs delivered as static SVG markup (no JS runtime dep)
-- 008-in-app-docs: Added Python 3.11+ (backend/build), Vanilla HTML/CSS/JS (main frontend) + MkDocs ≥1.5, mkdocs-material ≥9.5, FastAPI (existing), Pygments (transitive via mkdocs-material)
 
 
 <!-- MANUAL ADDITIONS START -->

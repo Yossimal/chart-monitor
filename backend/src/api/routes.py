@@ -1,6 +1,7 @@
 """FastAPI route definitions for Chart-Monitor API v1."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -93,7 +94,8 @@ async def trigger_sync(
     if authorization != expected:
         raise HTTPException(status_code=401, detail="Invalid or missing SYNC_SECRET.")
 
-    result = perform_sync()
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, perform_sync)
     if not result.success:
         return {"success": False, "message": result.message, "details": result.details}
 
