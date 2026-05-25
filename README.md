@@ -3,7 +3,6 @@
 **Dynamic data extraction, transformation, and visualization engine.**
 
 Chart-Monitor runs Python data-collection scripts inside a secure sandbox and serves the results as styled, auto-refreshing dashboard tables.
-a
 ---
 
 ## Quick Start
